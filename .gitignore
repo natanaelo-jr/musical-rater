@@ -7,7 +7,6 @@ __pycache__/
 *.log
 .env
 .venv/
-venv/
 
 # =========================
 # Node / React
