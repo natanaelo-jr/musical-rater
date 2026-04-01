@@ -13,13 +13,20 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
 
-      # 🐍 Python
+      # 1º Passo: Instalar o pnpm primeiro para que o setup-node possa usá-lo
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      # 2º Passo: Setup Python
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: 'pip' # Otimização gratuita
 
-      # 🟢 Node + cache
+      # 3º Passo: Setup Node com cache funcionando
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -27,21 +34,20 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      # 📦 pnpm (melhor forma)
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      # 📦 deps do frontend
       - name: Instalar dependências do frontend
         run: |
           cd frontend
-          pnpm install
+          pnpm install --frozen-lockfile
 
-      # 🔧 pre-commit
+      # 4º Passo: Instalar pre-commit e Cache de Hooks
+      - name: Cache Pre-commit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
       - name: Instalar pre-commit
         run: pip install pre-commit
 
       - name: Rodar pre-commit
-        run: pre-commit run --all-files
+        run: pre-commit run --all-files --show-diff-on-failure
