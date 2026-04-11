@@ -1,0 +1,239 @@
+:root {
+  color: #f4efe7;
+  background:
+    radial-gradient(circle at top, rgba(255, 184, 77, 0.2), transparent 30%),
+    linear-gradient(160deg, #0d1321 0%, #151b2e 50%, #091018 100%);
+  font-family:
+    "Segoe UI", "Avenir Next", "Helvetica Neue", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+textarea,
+a {
+  font: inherit;
+}
+
+a {
+  text-decoration: none;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.shell {
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.hero-panel,
+.card {
+  max-width: 1120px;
+  margin: 0 auto;
+  border: 1px solid rgba(244, 239, 231, 0.12);
+  background: rgba(8, 12, 22, 0.72);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
+}
+
+.hero-panel {
+  padding: 72px;
+  border-radius: 36px;
+}
+
+.card {
+  border-radius: 28px;
+  padding: 32px;
+}
+
+.auth-card,
+.profile-card,
+.loading-card {
+  max-width: 640px;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: #ffbf69;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.76rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 4.5rem);
+  line-height: 0.98;
+}
+
+.auth-card h1,
+.profile-card h1,
+.loading-card h1 {
+  font-size: clamp(2rem, 3vw, 3rem);
+}
+
+.lede,
+.support-copy,
+dd,
+input,
+textarea {
+  color: rgba(244, 239, 231, 0.82);
+}
+
+.lede {
+  max-width: 48rem;
+  margin: 20px 0 0;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.hero-actions,
+.section-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.hero-actions {
+  margin-top: 32px;
+}
+
+.primary-button,
+.ghost-button,
+.inline-link,
+.button-link {
+  border: 0;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    opacity 140ms ease,
+    background 140ms ease;
+}
+
+.primary-button,
+.ghost-button {
+  padding: 14px 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.primary-button {
+  background: linear-gradient(135deg, #ffbf69, #ff7b54);
+  color: #1a1124;
+  font-weight: 700;
+}
+
+.ghost-button {
+  background: rgba(244, 239, 231, 0.08);
+  color: #f4efe7;
+}
+
+.inline-link {
+  padding: 0;
+  background: transparent;
+  color: #ffbf69;
+}
+
+.primary-button:hover,
+.ghost-button:hover,
+.inline-link:hover,
+.button-link:hover {
+  transform: translateY(-1px);
+}
+
+.stack {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field span,
+dt {
+  color: #ffbf69;
+  font-size: 0.9rem;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(244, 239, 231, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.field small,
+.form-error {
+  color: #ff8f8f;
+}
+
+.form-success {
+  color: #96f7c1;
+}
+
+.dashboard-layout {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.8fr);
+  gap: 24px;
+}
+
+.spotlight {
+  padding: 40px;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 18px;
+  margin: 20px 0 0;
+}
+
+.summary-grid div {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+dt {
+  margin-bottom: 8px;
+}
+
+dd {
+  margin: 0;
+  line-height: 1.6;
+}
+
+@media (max-width: 840px) {
+  .shell {
+    padding: 20px;
+  }
+
+  .hero-panel,
+  .card,
+  .spotlight {
+    padding: 24px;
+  }
+
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+}
