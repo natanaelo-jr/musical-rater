@@ -142,3 +142,7 @@ just lint         # roda linters manualmente
   - ESLint + Prettier (frontend)
 - Hooks de commit são gerenciados via pre-commit
 - O CI valida automaticamente lint e formatação
+
+## Documentação
+
+- [Schema do banco de dados](docs/database-schema.md)
