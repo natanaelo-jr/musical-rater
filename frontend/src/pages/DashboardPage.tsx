@@ -18,10 +18,13 @@ export const DashboardPage = () => {
           <p className="eyebrow">Private dashboard</p>
           <h1>{user.displayName}, your account is live.</h1>
           <p className="lede">
-            This protected area confirms session auth is working and gives you a stable entry point
-            for future recommendation, review, and collection features.
+            Start searching the shared catalog, import songs or albums into the local database, and
+            build the foundation for ratings, favorites, and recommendations.
           </p>
           <div className="hero-actions">
+            <Link className="primary-button button-link" to="/app/search">
+              Search catalog
+            </Link>
             <Link className="primary-button button-link" to="/app/profile">
               Edit profile
             </Link>
@@ -37,22 +40,22 @@ export const DashboardPage = () => {
           </div>
         </article>
         <aside className="card profile-summary">
-          <p className="eyebrow">Account snapshot</p>
+          <p className="eyebrow">Next actions</p>
           <dl className="summary-grid">
             <div>
-              <dt>Email</dt>
-              <dd>{user.email}</dd>
+              <dt>Catalog search</dt>
+              <dd>Look up songs and albums from MusicBrainz without leaving the app.</dd>
             </div>
             <div>
-              <dt>Username</dt>
-              <dd>{user.username || "Not set yet"}</dd>
+              <dt>Local import</dt>
+              <dd>Save selected results to the local catalog when you are ready to use them.</dd>
             </div>
             <div>
-              <dt>Avatar</dt>
-              <dd>{user.avatarUrl || "Not set yet"}</dd>
+              <dt>Profile</dt>
+              <dd>{user.username || "Set your public identity before sharing reviews."}</dd>
             </div>
             <div>
-              <dt>Bio</dt>
+              <dt>Taste signal</dt>
               <dd>{user.bio || "Tell us what you listen to."}</dd>
             </div>
           </dl>

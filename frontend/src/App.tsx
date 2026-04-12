@@ -8,6 +8,7 @@ import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { SearchPage } from "./pages/SearchPage";
 
 const App = () => (
   <AuthProvider>
@@ -20,6 +21,7 @@ const App = () => (
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardPage />} path="/app" />
         <Route element={<ProfilePage />} path="/app/profile" />
+        <Route element={<SearchPage />} path="/app/search" />
       </Route>
       <Route element={<Navigate replace to="/" />} path="*" />
     </Routes>
