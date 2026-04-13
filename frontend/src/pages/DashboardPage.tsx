@@ -1,11 +1,38 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../auth/useAuth";
+import { apiGet } from "../lib/api";
+
+type RatingSummary = {
+  id: number;
+  musicId: number;
+  score: number;
+  title: string;
+  artistName: string;
+  albumTitle?: string;
+  artworkUrl?: string;
+};
 
 export const DashboardPage = () => {
   const auth = useAuth();
   const navigate = useNavigate();
   const user = auth.user;
+  const [ratings, setRatings] = useState<RatingSummary[]>([]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    void apiGet<{ items: RatingSummary[] }>("/catalog/ratings")
+      .then((payload) => {
+        setRatings(payload.items);
+      })
+      .catch(() => {
+        setRatings([]);
+      });
+  }, [user]);
 
   if (!user) {
     return null;
@@ -42,6 +69,37 @@ export const DashboardPage = () => {
             </button>
           </div>
         </article>
+        <section className="card recent-ratings">
+          <div className="section-header">
+            <div>
+              <p className="eyebrow">Recently rated</p>
+              <h2>Your latest scores</h2>
+            </div>
+            <Link className="inline-link" to="/app/search">
+              Rate more
+            </Link>
+          </div>
+          {ratings.length ? (
+            <div className="recent-rating-list">
+              {ratings.map((rating) => (
+                <article className="recent-rating-item" key={rating.id}>
+                  <div>
+                    <strong>{rating.title}</strong>
+                    <span>
+                      {rating.artistName}
+                      {rating.albumTitle ? ` · ${rating.albumTitle}` : ""}
+                    </span>
+                  </div>
+                  <span className="rating-badge">{rating.score}/5</span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="support-copy">
+              Rate an imported track and it will land here.
+            </p>
+          )}
+        </section>
         <aside className="card profile-summary">
           <p className="eyebrow">Next actions</p>
           <dl className="summary-grid">

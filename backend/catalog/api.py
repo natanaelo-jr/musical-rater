@@ -35,6 +35,16 @@ def serialize_rating(rating):
     }
 
 
+def serialize_rating_summary(rating):
+    return {
+        **serialize_rating(rating),
+        "title": rating.music.title,
+        "artistName": rating.music.primary_artist.name,
+        "albumTitle": rating.music.album.title if rating.music.album_id else "",
+        "artworkUrl": rating.music.cover_url,
+    }
+
+
 @catalog_router.get("/search")
 def search_catalog_view(request, q: str, type: str = "all", page: int = 1):
     auth_error = auth_required(request)
@@ -57,6 +67,20 @@ def search_catalog_view(request, q: str, type: str = "all", page: int = 1):
         return JsonResponse(
             {"detail": "Catalog provider is currently unavailable."}, status=502
         )
+
+
+@catalog_router.get("/ratings")
+def list_ratings_view(request):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    ratings = (
+        Rating.objects.filter(user=request.user)
+        .select_related("music", "music__primary_artist", "music__album")
+        .order_by("-updated_at")[:5]
+    )
+    return {"items": [serialize_rating_summary(rating) for rating in ratings]}
 
 
 @catalog_router.get("/ratings/{music_id}")

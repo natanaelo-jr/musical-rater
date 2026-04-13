@@ -163,6 +163,20 @@ class CatalogApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["rating"]["score"], 3)
 
+    def test_list_ratings_returns_recent_user_ratings(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Rating.objects.create(user=self.user, music=music, score=4)
+
+        response = self.client.get("/api/catalog/ratings")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["title"], "My Shot")
+        self.assertEqual(
+            response.json()["items"][0]["artistName"], "Lin-Manuel Miranda"
+        )
+        self.assertEqual(response.json()["items"][0]["score"], 4)
+
     def test_clear_rating_removes_current_user_rating(self):
         self.client.force_login(self.user)
         music = self._create_music()
