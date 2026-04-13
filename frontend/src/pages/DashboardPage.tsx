@@ -14,11 +14,16 @@ type RatingSummary = {
   artworkUrl?: string;
 };
 
+type FollowingSummary = {
+  id: string;
+};
+
 export const DashboardPage = () => {
   const auth = useAuth();
   const navigate = useNavigate();
   const user = auth.user;
   const [ratings, setRatings] = useState<RatingSummary[]>([]);
+  const [followingCount, setFollowingCount] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -31,6 +36,13 @@ export const DashboardPage = () => {
       })
       .catch(() => {
         setRatings([]);
+      });
+    void apiGet<{ items: FollowingSummary[] }>("/social/following")
+      .then((payload) => {
+        setFollowingCount(payload.items.length);
+      })
+      .catch(() => {
+        setFollowingCount(0);
       });
   }, [user]);
 
@@ -130,6 +142,14 @@ export const DashboardPage = () => {
             <div>
               <dt>Taste signal</dt>
               <dd>{user.bio || "Tell us what you listen to."}</dd>
+            </div>
+            <div>
+              <dt>Following</dt>
+              <dd>
+                {followingCount
+                  ? `${followingCount} listener${followingCount === 1 ? "" : "s"}`
+                  : "Find listeners to follow."}
+              </dd>
             </div>
           </dl>
         </aside>
