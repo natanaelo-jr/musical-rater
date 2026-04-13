@@ -421,6 +421,16 @@ dd {
   color: #ffffff;
 }
 
+.rating-clear-button {
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(244, 239, 231, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(244, 239, 231, 0.82);
+  cursor: pointer;
+}
+
 @media (max-width: 840px) {
   .shell {
     padding: 20px;

@@ -92,6 +92,19 @@ def save_rating_view(request, music_id: int, payload: RatingInput):
     return {"rating": serialize_rating(rating)}
 
 
+@catalog_router.delete("/ratings/{music_id}")
+def clear_rating_view(request, music_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Music.objects.filter(id=music_id).exists():
+        return JsonResponse({"detail": "Track not found."}, status=404)
+
+    Rating.objects.filter(user=request.user, music_id=music_id).delete()
+    return {"rating": None}
+
+
 @catalog_router.post("/import")
 def import_catalog_view(request, payload: CatalogImportInput):
     auth_error = auth_required(request)

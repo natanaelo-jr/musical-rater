@@ -208,6 +208,19 @@ export const SearchPage = () => {
     }
   };
 
+  const updateItemRating = (itemId: number, score?: number) => {
+    setResults((current) =>
+      current.map((entry) =>
+        entry.id === itemId ? { ...entry, myRating: score } : entry,
+      ),
+    );
+    setSelectedItem((current) =>
+      current && current.id === itemId
+        ? { ...current, myRating: score }
+        : current,
+    );
+  };
+
   const rateItem = async (item: CatalogItem, score: number) => {
     if (!item.id) {
       return;
@@ -223,19 +236,28 @@ export const SearchPage = () => {
           body: JSON.stringify({ score }),
         },
       );
-      setResults((current) =>
-        current.map((entry) =>
-          entry.id === item.id
-            ? { ...entry, myRating: payload.rating.score }
-            : entry,
-        ),
-      );
-      setSelectedItem((current) =>
-        current && current.id === item.id
-          ? { ...current, myRating: payload.rating.score }
-          : current,
-      );
+      updateItemRating(item.id, payload.rating.score);
       setMessage(`Saved ${payload.rating.score}/5 for "${item.title}".`);
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setSavingRating(false);
+    }
+  };
+
+  const clearRating = async (item: CatalogItem) => {
+    if (!item.id) {
+      return;
+    }
+
+    setSavingRating(true);
+
+    try {
+      await apiRequest<{ rating: null }>(`/catalog/ratings/${item.id}`, {
+        method: "DELETE",
+      });
+      updateItemRating(item.id);
+      setMessage(`Cleared your rating for "${item.title}".`);
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -423,6 +445,16 @@ export const SearchPage = () => {
                         {score}
                       </button>
                     ))}
+                    {selectedItem.myRating ? (
+                      <button
+                        className="rating-clear-button"
+                        disabled={savingRating}
+                        onClick={() => void clearRating(selectedItem)}
+                        type="button"
+                      >
+                        Clear
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
