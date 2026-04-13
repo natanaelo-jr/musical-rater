@@ -2,8 +2,8 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
+import { toFieldErrors } from "../auth/authErrors";
 import { Field } from "../components/forms";
 
 export const LoginPage = () => {

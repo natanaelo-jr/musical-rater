@@ -2,8 +2,8 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
+import { toFieldErrors } from "../auth/authErrors";
 import { Field, TextAreaField } from "../components/forms";
 
 export const ProfilePage = () => {

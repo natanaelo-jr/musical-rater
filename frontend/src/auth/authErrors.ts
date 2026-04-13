@@ -2,7 +2,7 @@ import { ApiError } from "../lib/api";
 
 type FieldErrors = Record<string, string>;
 
-export const toFieldErrors = (error: unknown) => {
+export const toFieldErrors = (error: unknown): FieldErrors => {
   if (!(error instanceof ApiError)) {
     return { form: "Unexpected error. Please try again." };
   }
