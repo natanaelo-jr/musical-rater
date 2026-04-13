@@ -17,7 +17,14 @@ type CatalogItem = {
   releaseDate?: string;
   durationSeconds?: number;
   imported: boolean;
+  myRating?: number;
   metadata?: Record<string, unknown>;
+};
+
+type Rating = {
+  id: number;
+  musicId: number;
+  score: number;
 };
 
 type SearchResponse = {
@@ -51,10 +58,15 @@ export const SearchPage = () => {
   const [type, setType] = useState<SearchType>("all");
   const [results, setResults] = useState<CatalogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [message, setMessage] = useState("Search for songs and albums from the catalog.");
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle",
+  );
+  const [message, setMessage] = useState(
+    "Search for songs and albums from the catalog.",
+  );
   const [isPending, startTransition] = useTransition();
   const [importingId, setImportingId] = useState<string | null>(null);
+  const [savingRating, setSavingRating] = useState(false);
 
   useEffect(() => {
     const trimmedQuery = query.trim();
@@ -92,7 +104,8 @@ export const SearchPage = () => {
               return (
                 payload.items.find(
                   (item) =>
-                    item.externalId === current.externalId && item.sourceProvider === current.sourceProvider,
+                    item.externalId === current.externalId &&
+                    item.sourceProvider === current.sourceProvider,
                 ) ??
                 payload.items[0] ??
                 null
@@ -119,18 +132,52 @@ export const SearchPage = () => {
     };
   }, [query, type]);
 
+  useEffect(() => {
+    if (
+      !selectedItem?.id ||
+      selectedItem.type !== "track" ||
+      !selectedItem.imported
+    ) {
+      return;
+    }
+
+    void apiGet<{ rating: Rating | null }>(
+      `/catalog/ratings/${selectedItem.id}`,
+    )
+      .then((payload) => {
+        setResults((current) =>
+          current.map((entry) =>
+            entry.id === selectedItem.id
+              ? { ...entry, myRating: payload.rating?.score }
+              : entry,
+          ),
+        );
+        setSelectedItem((current) =>
+          current && current.id === selectedItem.id
+            ? { ...current, myRating: payload.rating?.score }
+            : current,
+        );
+      })
+      .catch((error: unknown) => {
+        setMessage(readError(error));
+      });
+  }, [selectedItem?.id, selectedItem?.imported, selectedItem?.type]);
+
   const importItem = async (item: CatalogItem) => {
     setImportingId(item.externalId);
 
     try {
-      const payload = await apiRequest<{ item: CatalogItem }>("/catalog/import", {
-        method: "POST",
-        body: JSON.stringify({
-          source_provider: item.sourceProvider,
-          external_id: item.externalId,
-          type: item.type,
-        }),
-      });
+      const payload = await apiRequest<{ item: CatalogItem }>(
+        "/catalog/import",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            source_provider: item.sourceProvider,
+            external_id: item.externalId,
+            type: item.type,
+          }),
+        },
+      );
 
       const importedItem = payload.item;
       setResults((current) =>
@@ -161,6 +208,41 @@ export const SearchPage = () => {
     }
   };
 
+  const rateItem = async (item: CatalogItem, score: number) => {
+    if (!item.id) {
+      return;
+    }
+
+    setSavingRating(true);
+
+    try {
+      const payload = await apiRequest<{ rating: Rating }>(
+        `/catalog/ratings/${item.id}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ score }),
+        },
+      );
+      setResults((current) =>
+        current.map((entry) =>
+          entry.id === item.id
+            ? { ...entry, myRating: payload.rating.score }
+            : entry,
+        ),
+      );
+      setSelectedItem((current) =>
+        current && current.id === item.id
+          ? { ...current, myRating: payload.rating.score }
+          : current,
+      );
+      setMessage(`Saved ${payload.rating.score}/5 for "${item.title}".`);
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setSavingRating(false);
+    }
+  };
+
   return (
     <main className="shell">
       <section className="search-layout">
@@ -186,11 +268,17 @@ export const SearchPage = () => {
             />
           </label>
 
-          <div className="filter-row" role="tablist" aria-label="Search filters">
+          <div
+            className="filter-row"
+            role="tablist"
+            aria-label="Search filters"
+          >
             {filters.map((filter) => (
               <button
                 aria-selected={type === filter.value}
-                className={type === filter.value ? "filter-chip active" : "filter-chip"}
+                className={
+                  type === filter.value ? "filter-chip active" : "filter-chip"
+                }
                 key={filter.value}
                 onClick={() => setType(filter.value)}
                 role="tab"
@@ -201,7 +289,9 @@ export const SearchPage = () => {
             ))}
           </div>
 
-          <p className={status === "error" ? "form-error" : "support-copy"}>{message}</p>
+          <p className={status === "error" ? "form-error" : "support-copy"}>
+            {message}
+          </p>
 
           <div className="results-grid">
             {results.map((item) => {
@@ -218,9 +308,15 @@ export const SearchPage = () => {
                 >
                   <div className="result-cover">
                     {item.artworkUrl ? (
-                      <img alt={`${item.title} cover`} loading="lazy" src={item.artworkUrl} />
+                      <img
+                        alt={`${item.title} cover`}
+                        loading="lazy"
+                        src={item.artworkUrl}
+                      />
                     ) : (
-                      <div className="result-cover-fallback">{item.type === "album" ? "LP" : "♪"}</div>
+                      <div className="result-cover-fallback">
+                        {item.type === "album" ? "LP" : "♪"}
+                      </div>
                     )}
                   </div>
                   <div className="result-copy">
@@ -232,7 +328,11 @@ export const SearchPage = () => {
                     <span>{item.artistName}</span>
                     <span>{formatDate(item.releaseDate)}</span>
                   </div>
-                  <span className={item.imported ? "import-badge imported" : "import-badge"}>
+                  <span
+                    className={
+                      item.imported ? "import-badge imported" : "import-badge"
+                    }
+                  >
                     {item.imported ? "Imported" : "Remote"}
                   </span>
                 </button>
@@ -243,7 +343,9 @@ export const SearchPage = () => {
               <div className="result-placeholder">Loading results...</div>
             ) : null}
             {status === "ready" && results.length === 0 ? (
-              <div className="result-placeholder">No matches for this query.</div>
+              <div className="result-placeholder">
+                No matches for this query.
+              </div>
             ) : null}
           </div>
         </article>
@@ -269,7 +371,11 @@ export const SearchPage = () => {
                 </div>
                 <div>
                   <dt>Catalog status</dt>
-                  <dd>{selectedItem.imported ? "Imported locally" : "Not imported yet"}</dd>
+                  <dd>
+                    {selectedItem.imported
+                      ? "Imported locally"
+                      : "Not imported yet"}
+                  </dd>
                 </div>
                 {selectedItem.albumTitle ? (
                   <div>
@@ -280,7 +386,10 @@ export const SearchPage = () => {
               </dl>
               <button
                 className="primary-button"
-                disabled={selectedItem.imported || importingId === selectedItem.externalId}
+                disabled={
+                  selectedItem.imported ||
+                  importingId === selectedItem.externalId
+                }
                 onClick={() => void importItem(selectedItem)}
                 type="button"
               >
@@ -290,10 +399,38 @@ export const SearchPage = () => {
                     ? "Importing..."
                     : "Import to local catalog"}
               </button>
+              {selectedItem.type === "track" && selectedItem.imported ? (
+                <div className="rating-box">
+                  <p className="support-copy">
+                    {selectedItem.myRating
+                      ? `Your rating: ${selectedItem.myRating}/5`
+                      : "Add a quick rating."}
+                  </p>
+                  <div className="rating-row" aria-label="Rate this track">
+                    {[1, 2, 3, 4, 5].map((score) => (
+                      <button
+                        aria-pressed={selectedItem.myRating === score}
+                        className={
+                          selectedItem.myRating === score
+                            ? "rating-button active"
+                            : "rating-button"
+                        }
+                        disabled={savingRating}
+                        key={score}
+                        onClick={() => void rateItem(selectedItem, score)}
+                        type="button"
+                      >
+                        {score}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </>
           ) : (
             <p className="support-copy">
-              Pick a search result to inspect its metadata and import it to the local catalog.
+              Pick a search result to inspect its metadata and import it to the
+              local catalog.
             </p>
           )}
         </aside>

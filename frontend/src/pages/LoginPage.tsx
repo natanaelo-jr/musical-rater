@@ -2,7 +2,8 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { toFieldErrors, useAuth } from "../auth/AuthContext";
+import { toFieldErrors } from "../auth/authErrors";
+import { useAuth } from "../auth/useAuth";
 import { Field } from "../components/forms";
 
 export const LoginPage = () => {
@@ -14,7 +15,9 @@ export const LoginPage = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  const nextPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/app";
+  const nextPath =
+    (location.state as { from?: { pathname?: string } } | null)?.from
+      ?.pathname ?? "/app";
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -55,7 +58,11 @@ export const LoginPage = () => {
           {errors.credentials || errors.form ? (
             <p className="form-error">{errors.credentials ?? errors.form}</p>
           ) : null}
-          <button className="primary-button" disabled={submitting} type="submit">
+          <button
+            className="primary-button"
+            disabled={submitting}
+            type="submit"
+          >
             {submitting ? "Signing in..." : "Sign in"}
           </button>
         </form>

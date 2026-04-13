@@ -390,6 +390,37 @@ dd {
   margin-top: 8px;
 }
 
+.rating-box {
+  display: grid;
+  gap: 12px;
+}
+
+.rating-box .support-copy {
+  margin: 0;
+}
+
+.rating-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rating-button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(244, 239, 231, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4efe7;
+  cursor: pointer;
+}
+
+.rating-button.active {
+  border-color: #d0ffce;
+  background: #f0447d;
+  color: #ffffff;
+}
+
 @media (max-width: 840px) {
   .shell {
     padding: 20px;

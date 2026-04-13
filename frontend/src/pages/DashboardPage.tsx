@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 
 export const DashboardPage = () => {
   const auth = useAuth();
@@ -18,8 +18,9 @@ export const DashboardPage = () => {
           <p className="eyebrow">Private dashboard</p>
           <h1>{user.displayName}, your account is live.</h1>
           <p className="lede">
-            Start searching the shared catalog, import songs or albums into the local database, and
-            build the foundation for ratings, favorites, and recommendations.
+            Start searching the shared catalog, import songs or albums into the
+            local database, and build the foundation for ratings, favorites, and
+            recommendations.
           </p>
           <div className="hero-actions">
             <Link className="primary-button button-link" to="/app/search">
@@ -31,7 +32,9 @@ export const DashboardPage = () => {
             <button
               className="ghost-button"
               onClick={() => {
-                void auth.logout().then(() => navigate("/login", { replace: true }));
+                void auth
+                  .logout()
+                  .then(() => navigate("/login", { replace: true }));
               }}
               type="button"
             >
@@ -44,15 +47,24 @@ export const DashboardPage = () => {
           <dl className="summary-grid">
             <div>
               <dt>Catalog search</dt>
-              <dd>Look up songs and albums from MusicBrainz without leaving the app.</dd>
+              <dd>
+                Look up songs and albums from MusicBrainz without leaving the
+                app.
+              </dd>
             </div>
             <div>
               <dt>Local import</dt>
-              <dd>Save selected results to the local catalog when you are ready to use them.</dd>
+              <dd>
+                Save selected results to the local catalog when you are ready to
+                use them.
+              </dd>
             </div>
             <div>
               <dt>Profile</dt>
-              <dd>{user.username || "Set your public identity before sharing reviews."}</dd>
+              <dd>
+                {user.username ||
+                  "Set your public identity before sharing reviews."}
+              </dd>
             </div>
             <div>
               <dt>Taste signal</dt>
