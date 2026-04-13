@@ -1,7 +1,7 @@
 set shell := ["bash", "-c"]
 
 db:
-    docker compose up -d
+    docker-compose up -d
 
 backend:
     cd backend && uv run python manage.py runserver
