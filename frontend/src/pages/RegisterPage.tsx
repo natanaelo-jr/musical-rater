@@ -1,8 +1,8 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
-import { toFieldErrors, useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
+import { toFieldErrors } from "../auth/authErrors";
 import { Field } from "../components/forms";
 
 export const RegisterPage = () => {
@@ -59,7 +59,11 @@ export const RegisterPage = () => {
             value={password}
           />
           {errors.form ? <p className="form-error">{errors.form}</p> : null}
-          <button className="primary-button" disabled={submitting} type="submit">
+          <button
+            className="primary-button"
+            disabled={submitting}
+            type="submit"
+          >
             {submitting ? "Creating..." : "Create account"}
           </button>
         </form>

@@ -2,7 +2,8 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { toFieldErrors, useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
+import { toFieldErrors } from "../auth/authErrors";
 import { Field, TextAreaField } from "../components/forms";
 
 export const ProfilePage = () => {
@@ -85,7 +86,11 @@ export const ProfilePage = () => {
           />
           {errors.form ? <p className="form-error">{errors.form}</p> : null}
           {success ? <p className="form-success">{success}</p> : null}
-          <button className="primary-button" disabled={submitting} type="submit">
+          <button
+            className="primary-button"
+            disabled={submitting}
+            type="submit"
+          >
             {submitting ? "Saving..." : "Save profile"}
           </button>
         </form>
