@@ -367,6 +367,20 @@ dd {
   color: #96f7c1;
 }
 
+.result-badges {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.rating-badge {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(240, 68, 125, 0.16);
+  color: #f4efe7;
+  font-size: 0.78rem;
+}
+
 .result-placeholder {
   padding: 28px;
   border-radius: 22px;
@@ -454,7 +468,7 @@ dd {
     grid-template-columns: 60px minmax(0, 1fr);
   }
 
-  .import-badge {
+  .result-badges {
     grid-column: 2;
     justify-self: start;
   }

@@ -350,13 +350,20 @@ export const SearchPage = () => {
                     <span>{item.artistName}</span>
                     <span>{formatDate(item.releaseDate)}</span>
                   </div>
-                  <span
-                    className={
-                      item.imported ? "import-badge imported" : "import-badge"
-                    }
-                  >
-                    {item.imported ? "Imported" : "Remote"}
-                  </span>
+                  <div className="result-badges">
+                    <span
+                      className={
+                        item.imported ? "import-badge imported" : "import-badge"
+                      }
+                    >
+                      {item.imported ? "Imported" : "Remote"}
+                    </span>
+                    {item.myRating ? (
+                      <span className="rating-badge">
+                        Rated {item.myRating}/5
+                      </span>
+                    ) : null}
+                  </div>
                 </button>
               );
             })}
