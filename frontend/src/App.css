@@ -367,6 +367,20 @@ dd {
   color: #96f7c1;
 }
 
+.result-badges {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.rating-badge {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(240, 68, 125, 0.16);
+  color: #f4efe7;
+  font-size: 0.78rem;
+}
+
 .result-placeholder {
   padding: 28px;
   border-radius: 22px;
@@ -421,6 +435,16 @@ dd {
   color: #ffffff;
 }
 
+.rating-clear-button {
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(244, 239, 231, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(244, 239, 231, 0.82);
+  cursor: pointer;
+}
+
 @media (max-width: 840px) {
   .shell {
     padding: 20px;
@@ -444,7 +468,7 @@ dd {
     grid-template-columns: 60px minmax(0, 1fr);
   }
 
-  .import-badge {
+  .result-badges {
     grid-column: 2;
     justify-self: start;
   }

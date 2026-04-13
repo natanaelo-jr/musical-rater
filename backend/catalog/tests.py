@@ -163,6 +163,17 @@ class CatalogApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["rating"]["score"], 3)
 
+    def test_clear_rating_removes_current_user_rating(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Rating.objects.create(user=self.user, music=music, score=3)
+
+        response = self.client.delete(f"/api/catalog/ratings/{music.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["rating"])
+        self.assertEqual(Rating.objects.count(), 0)
+
     def _create_music(self):
         artist = Artist.objects.create(
             name="Lin-Manuel Miranda",
