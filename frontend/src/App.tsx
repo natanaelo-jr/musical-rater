@@ -6,6 +6,7 @@ import { ProtectedRoute, PublicOnlyRoute } from "./auth/RouteGuards";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
+import { PeoplePage } from "./pages/PeoplePage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { SearchPage } from "./pages/SearchPage";
@@ -20,6 +21,7 @@ const App = () => (
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardPage />} path="/app" />
+        <Route element={<PeoplePage />} path="/app/people" />
         <Route element={<ProfilePage />} path="/app/profile" />
         <Route element={<SearchPage />} path="/app/search" />
       </Route>

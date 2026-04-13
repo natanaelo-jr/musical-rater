@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.http import JsonResponse
 from ninja import Router
 
@@ -22,6 +23,46 @@ def serialize_user_summary(user):
         "username": profile.username or "",
         "avatarUrl": profile.avatar_url,
         "bio": profile.bio,
+    }
+
+
+def serialize_user_with_follow_state(user, following_ids):
+    return {
+        **serialize_user_summary(user),
+        "isFollowing": user.id in following_ids,
+    }
+
+
+@social_router.get("/users")
+def search_users_view(request, q: str = ""):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    query = q.strip()
+    if len(query) < 2:
+        return {"items": []}
+
+    following_ids = set(
+        Follow.objects.filter(follower=request.user).values_list(
+            "following_id", flat=True
+        )
+    )
+    users = (
+        User.objects.select_related("profile")
+        .exclude(id=request.user.id)
+        .filter(
+            Q(email__icontains=query)
+            | Q(profile__display_name__icontains=query)
+            | Q(profile__username__icontains=query)
+        )
+        .order_by("profile__display_name", "email")[:10]
+    )
+
+    return {
+        "items": [
+            serialize_user_with_follow_state(user, following_ids) for user in users
+        ]
     }
 
 

@@ -267,7 +267,8 @@ dd {
 }
 
 .search-panel,
-.result-detail {
+.result-detail,
+.people-panel {
   display: grid;
   gap: 24px;
   align-content: start;
@@ -482,6 +483,61 @@ dd {
   cursor: pointer;
 }
 
+.people-list {
+  display: grid;
+  gap: 14px;
+}
+
+.person-card {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.person-avatar,
+.person-avatar img,
+.person-avatar span {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+}
+
+.person-avatar img {
+  display: block;
+  object-fit: cover;
+}
+
+.person-avatar span {
+  display: grid;
+  place-items: center;
+  background: rgba(240, 68, 125, 0.16);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.person-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.person-copy strong,
+.person-copy span,
+.person-copy p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person-copy span,
+.person-copy p {
+  margin: 0;
+  color: rgba(244, 239, 231, 0.72);
+}
+
 @media (max-width: 840px) {
   .shell {
     padding: 20px;
@@ -503,6 +559,15 @@ dd {
 
   .result-card {
     grid-template-columns: 60px minmax(0, 1fr);
+  }
+
+  .person-card {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .person-card button {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .result-badges {

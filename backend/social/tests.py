@@ -42,6 +42,26 @@ class SocialApiTests(TestCase):
             ).exists()
         )
 
+    def test_search_users_returns_matching_profiles_with_follow_state(self):
+        self.client.force_login(self.user)
+        Follow.objects.create(follower=self.user, following=self.other_user)
+
+        response = self.client.get("/api/social/users", {"q": "cri"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["username"], "critic")
+        self.assertEqual(response.json()["items"][0]["isFollowing"], True)
+
+    def test_search_users_excludes_current_user(self):
+        self.user.profile.display_name = "Listener"
+        self.user.profile.save(update_fields=["display_name"])
+        self.client.force_login(self.user)
+
+        response = self.client.get("/api/social/users", {"q": "listener"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"], [])
+
     def test_follow_user_is_idempotent(self):
         self.client.force_login(self.user)
 

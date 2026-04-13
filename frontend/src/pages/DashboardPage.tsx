@@ -56,6 +56,9 @@ export const DashboardPage = () => {
             <Link className="primary-button button-link" to="/app/profile">
               Edit profile
             </Link>
+            <Link className="ghost-button button-link" to="/app/people">
+              Find people
+            </Link>
             <button
               className="ghost-button"
               onClick={() => {
