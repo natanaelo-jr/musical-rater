@@ -1,12 +1,13 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/useAuth";
 import { toFieldErrors } from "../auth/authErrors";
 import { Field, TextAreaField } from "../components/forms";
 
 export const ProfilePage = () => {
+  const { t } = useTranslation();
   const auth = useAuth();
   const user = auth.user;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
@@ -49,39 +50,39 @@ export const ProfilePage = () => {
       <section className="card profile-card">
         <div className="section-header">
           <div>
-            <p className="eyebrow">Edit profile</p>
-            <h1>Personalize your private identity.</h1>
+            <p className="eyebrow">{t("profile_eyebrow")}</p>
+            <h1>{t("profile_title")}</h1>
           </div>
           <Link className="ghost-button button-link" to="/app">
-            Back to dashboard
+            {t("back_to_dashboard")}
           </Link>
         </div>
         <form className="stack" onSubmit={submit}>
           <Field
             error={errors.display_name}
-            label="Display name"
+            label={t("display_name_label")}
             onChange={setDisplayName}
             value={displayName}
           />
           <Field
             error={errors.username}
-            label="Username"
+            label={t("username_label")}
             onChange={setUsername}
             placeholder="stage-door-fan"
             value={username}
           />
           <Field
             error={errors.avatar_url}
-            label="Avatar URL"
+            label={t("avatar_url_label")}
             onChange={setAvatarUrl}
             placeholder="https://example.com/avatar.jpg"
             value={avatarUrl}
           />
           <TextAreaField
             error={errors.bio}
-            label="Bio"
+            label={t("bio_label")}
             onChange={setBio}
-            placeholder="Share your favorite cast recordings."
+            placeholder={t("bio_placeholder")}
             value={bio}
           />
           {errors.form ? <p className="form-error">{errors.form}</p> : null}
@@ -91,7 +92,7 @@ export const ProfilePage = () => {
             disabled={submitting}
             type="submit"
           >
-            {submitting ? "Saving..." : "Save profile"}
+            {submitting ? t("saving_profile") : t("save_profile")}
           </button>
         </form>
       </section>

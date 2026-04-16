@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../auth/useAuth";
 import { toFieldErrors } from "../auth/authErrors";
@@ -10,6 +11,8 @@ export const LoginPage = () => {
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -37,20 +40,21 @@ export const LoginPage = () => {
   return (
     <main className="shell">
       <section className="card auth-card">
-        <p className="eyebrow">Welcome back</p>
-        <h1>Sign in to your private rating desk.</h1>
+        {/* Substituindo os textos fixos pelas chaves */}
+        <p className="eyebrow">{t("login_eyebrow")}</p>
+        <h1>{t("login_title")}</h1>
         <form className="stack" onSubmit={submit}>
           <Field
             error={errors.email}
-            label="Email"
+            label={t("email_label")}
             onChange={setEmail}
-            placeholder="you@example.com"
+            placeholder={t("email_placeholder")}
             type="email"
             value={email}
           />
           <Field
             error={errors.password}
-            label="Password"
+            label={t("password_label")}
             onChange={setPassword}
             type="password"
             value={password}
@@ -63,13 +67,13 @@ export const LoginPage = () => {
             disabled={submitting}
             type="submit"
           >
-            {submitting ? "Signing in..." : "Sign in"}
+            {submitting ? t("signing_in") : t("sign_in")}
           </button>
         </form>
         <p className="support-copy">
-          No account yet?{" "}
+          {t("no_account")}{" "}
           <Link className="inline-link" to="/register">
-            Create one
+            {t("create_one")}
           </Link>
         </p>
       </section>

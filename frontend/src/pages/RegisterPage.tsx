@@ -1,6 +1,8 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next"; // 1. Importando o hook
+
 import { useAuth } from "../auth/useAuth";
 import { toFieldErrors } from "../auth/authErrors";
 import { Field } from "../components/forms";
@@ -8,6 +10,8 @@ import { Field } from "../components/forms";
 export const RegisterPage = () => {
   const auth = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation(); // 2. Inicializando a tradução
+
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,45 +36,49 @@ export const RegisterPage = () => {
   return (
     <main className="shell">
       <section className="card auth-card">
-        <p className="eyebrow">Create profile</p>
-        <h1>Start your account and unlock private pages.</h1>
+        {/* 3. Substituindo os textos pelo t() */}
+        <p className="eyebrow">{t("register_eyebrow")}</p>
+        <h1>{t("register_title")}</h1>
+
         <form className="stack" onSubmit={submit}>
           <Field
             error={errors.display_name}
-            label="Display name"
+            label={t("display_name_label")}
             onChange={setDisplayName}
-            placeholder="Broadway fan"
+            placeholder={t("display_name_placeholder")}
             value={displayName}
           />
           <Field
             error={errors.email}
-            label="Email"
+            label={t("email_label")} // Reutilizando a chave da tela de Login!
             onChange={setEmail}
-            placeholder="you@example.com"
+            placeholder={t("email_placeholder")}
             type="email"
             value={email}
           />
           <Field
             error={errors.password}
-            label="Password"
+            label={t("password_label")} // Reutilizando a chave da tela de Login!
             onChange={setPassword}
-            placeholder="At least 8 characters"
+            placeholder={t("password_placeholder")}
             type="password"
             value={password}
           />
           {errors.form ? <p className="form-error">{errors.form}</p> : null}
+
           <button
             className="primary-button"
             disabled={submitting}
             type="submit"
           >
-            {submitting ? "Creating..." : "Create account"}
+            {submitting ? t("creating_account") : t("create_account")}
           </button>
         </form>
+
         <p className="support-copy">
-          Already registered?{" "}
+          {t("already_registered")}{" "}
           <Link className="inline-link" to="/login">
-            Sign in
+            {t("sign_in")} {/* Reutilizando a chave da tela inicial! */}
           </Link>
         </p>
       </section>
