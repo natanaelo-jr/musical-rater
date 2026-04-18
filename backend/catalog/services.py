@@ -129,11 +129,12 @@ def _import_track(item: dict[str, object]):
     return music
 
 
-def _get_or_create_artist(*, source_provider: str, external_id: str, name: str, image_url: str):
+def _get_or_create_artist(
+    *, source_provider: str, external_id: str, name: str, image_url: str
+):
     artist, _ = Artist.objects.get_or_create(
         source_provider=source_provider,
         external_id=external_id,
         defaults={"name": name, "image_url": image_url},
     )
     return artist
-

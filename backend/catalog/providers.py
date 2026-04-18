@@ -25,7 +25,8 @@ class MusicBrainzSearchProvider(CatalogSearchProvider):
             return {
                 "items": album_results["items"] + track_results["items"],
                 "page": page,
-                "hasNextPage": album_results["hasNextPage"] or track_results["hasNextPage"],
+                "hasNextPage": album_results["hasNextPage"]
+                or track_results["hasNextPage"],
             }
         if result_type == "album":
             return self._search_releases(query=query, page=page, limit=self.page_size)
@@ -35,7 +36,9 @@ class MusicBrainzSearchProvider(CatalogSearchProvider):
 
     def fetch_item(self, item_type: str, external_id: str):
         if item_type == "album":
-            payload = self._request_json(f"/release/{external_id}", {"inc": "artist-credits"})
+            payload = self._request_json(
+                f"/release/{external_id}", {"inc": "artist-credits"}
+            )
             return self._normalize_release(payload)
         if item_type == "track":
             payload = self._request_json(
@@ -51,7 +54,9 @@ class MusicBrainzSearchProvider(CatalogSearchProvider):
             "/release",
             {"query": query, "fmt": "json", "limit": limit, "offset": offset},
         )
-        items = [self._normalize_release(release) for release in payload.get("releases", [])]
+        items = [
+            self._normalize_release(release) for release in payload.get("releases", [])
+        ]
         total = int(payload.get("count", len(items)))
         return {"items": items, "page": page, "hasNextPage": offset + limit < total}
 
@@ -116,7 +121,9 @@ class MusicBrainzSearchProvider(CatalogSearchProvider):
             "title": str(recording.get("title", "")),
             "artistName": self._artist_name(artist_credit),
             "artworkUrl": self._cover_art_url(release_id),
-            "releaseDate": str(primary_release.get("date", recording.get("first-release-date", ""))),
+            "releaseDate": str(
+                primary_release.get("date", recording.get("first-release-date", ""))
+            ),
             "durationSeconds": self._duration_seconds(recording.get("length")),
             "album": {
                 "externalId": release_id,
@@ -153,4 +160,3 @@ def get_catalog_provider(source_provider: str):
     if source_provider == "musicbrainz":
         return MusicBrainzSearchProvider()
     raise ValueError("Unsupported provider.")
-

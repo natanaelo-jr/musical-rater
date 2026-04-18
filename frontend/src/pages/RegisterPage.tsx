@@ -4,7 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
-import { Field, focusFirstFieldError } from "../components/forms";
+import { focusFirstFieldError } from "../components/formUtils";
+import { Field } from "../components/forms";
 
 const shellClass =
   "grid min-h-screen items-center bg-auth-shell px-5 py-8 text-foreground sm:px-8";

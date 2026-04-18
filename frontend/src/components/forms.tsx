@@ -64,7 +64,8 @@ export const Field = ({
   const inputId = `${generatedId}-${slugify(name ?? label) || "field"}`;
   const helperId = helperText ? `${inputId}-help` : undefined;
   const errorId = error ? `${inputId}-error` : undefined;
-  const describedBy = [helperId, errorId].filter(Boolean).join(" ") || undefined;
+  const describedBy =
+    [helperId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
     <div className="grid gap-2.5">
@@ -114,7 +115,8 @@ export const TextAreaField = ({
   const inputId = `${generatedId}-${slugify(name ?? label) || "field"}`;
   const helperId = helperText ? `${inputId}-help` : undefined;
   const errorId = error ? `${inputId}-error` : undefined;
-  const describedBy = [helperId, errorId].filter(Boolean).join(" ") || undefined;
+  const describedBy =
+    [helperId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
     <div className="grid gap-2.5">
@@ -147,17 +149,4 @@ export const TextAreaField = ({
       ) : null}
     </div>
   );
-};
-
-export const focusFirstFieldError = (errors: Record<string, string>) => {
-  const fieldName = Object.keys(errors).find((key) => !["form", "credentials"].includes(key));
-
-  if (!fieldName) {
-    return;
-  }
-
-  const target = document.getElementsByName(fieldName).item(0);
-  if (target instanceof HTMLElement) {
-    target.focus();
-  }
 };

@@ -61,14 +61,22 @@ export const AuthenticatedShell = () => {
             </div>
           </div>
 
-          <nav aria-label="Primary" className="flex flex-wrap items-center gap-2.5">
+          <nav
+            aria-label="Primary"
+            className="flex flex-wrap items-center gap-2.5"
+          >
             {[
               { label: "Dashboard", to: "/app" },
               { label: "Search", to: "/app/search" },
               { label: "People", to: "/app/people" },
               { label: "Profile", to: "/app/profile" },
             ].map((item) => (
-              <NavLink className={navLinkClass} end={item.to === "/app"} key={item.to} to={item.to}>
+              <NavLink
+                className={navLinkClass}
+                end={item.to === "/app"}
+                key={item.to}
+                to={item.to}
+              >
                 {item.label}
               </NavLink>
             ))}
@@ -82,7 +90,9 @@ export const AuthenticatedShell = () => {
               {getInitials(user.displayName || user.username || user.email)}
             </div>
             <div className="grid min-w-0 gap-0.5">
-              <div className="font-bold leading-tight">{user.displayName || "Your profile"}</div>
+              <div className="font-bold leading-tight">
+                {user.displayName || "Your profile"}
+              </div>
               <div className="text-sm text-foreground/70">
                 {user.username ? `@${user.username}` : user.email}
               </div>
@@ -100,7 +110,8 @@ export const AuthenticatedShell = () => {
         {needsProfileSetup ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-secondary/18 bg-secondary/8 px-4 py-[14px] text-foreground">
             <span>
-              Finish your profile so friends and future ratings have a clearer identity to follow.
+              Finish your profile so friends and future ratings have a clearer
+              identity to follow.
             </span>
             <Link className="font-bold text-primary" to="/app/profile">
               Complete profile

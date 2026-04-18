@@ -45,9 +45,14 @@ export const ensureCsrfToken = async () => {
     })
       .then(async (response) => {
         const payload = await readJson(response);
-        const token = getCookie("csrftoken") || String(payload?.csrfToken ?? "");
+        const token =
+          getCookie("csrftoken") || String(payload?.csrfToken ?? "");
         if (!token) {
-          throw new ApiError("Unable to initialize CSRF token.", response.status, payload);
+          throw new ApiError(
+            "Unable to initialize CSRF token.",
+            response.status,
+            payload,
+          );
         }
         return token;
       })
@@ -83,12 +88,13 @@ export const apiRequest = async <T>(
   const payload = await readJson(response);
   if (!response.ok) {
     const message =
-      String(payload?.detail ?? payload?.message ?? "Request failed.") || "Request failed.";
+      String(payload?.detail ?? payload?.message ?? "Request failed.") ||
+      "Request failed.";
     throw new ApiError(message, response.status, payload);
   }
 
   return payload as T;
 };
 
-export const apiGet = <T>(path: string) => apiRequest<T>(path, { method: "GET" });
-
+export const apiGet = <T>(path: string) =>
+  apiRequest<T>(path, { method: "GET" });

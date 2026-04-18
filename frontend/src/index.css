@@ -15,8 +15,16 @@
     radial-gradient(circle at top, rgba(208, 255, 206, 0.2), transparent 30%),
     linear-gradient(160deg, #040c10 0%, #151b2e 50%, #091018 100%);
   --brand-app-shell:
-    radial-gradient(circle at top left, rgba(208, 255, 206, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(240, 68, 125, 0.12), transparent 30%),
+    radial-gradient(
+      circle at top left,
+      rgba(208, 255, 206, 0.18),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(240, 68, 125, 0.12),
+      transparent 30%
+    ),
     linear-gradient(160deg, #040c10 0%, #151b2e 50%, #091018 100%);
 }
 

@@ -3,11 +3,8 @@ import { useEffect, useState } from "react";
 
 import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
-import {
-  Field,
-  TextAreaField,
-  focusFirstFieldError,
-} from "../components/forms";
+import { focusFirstFieldError } from "../components/formUtils";
+import { Field, TextAreaField } from "../components/forms";
 
 const cardClass =
   "mx-auto w-full max-w-[640px] rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]";
