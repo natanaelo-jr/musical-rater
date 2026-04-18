@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 
 import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
-import { Field, TextAreaField, focusFirstFieldError } from "../components/forms";
+import {
+  Field,
+  TextAreaField,
+  focusFirstFieldError,
+} from "../components/forms";
 
 const cardClass =
   "mx-auto w-full max-w-[640px] rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]";
@@ -40,7 +44,9 @@ export const ProfilePage = () => {
 
     try {
       await auth.updateProfile({ displayName, username, avatarUrl, bio });
-      setSuccess("Profile updated. Your workspace now reflects the new details.");
+      setSuccess(
+        "Profile updated. Your workspace now reflects the new details.",
+      );
     } catch (error) {
       const nextErrors = toFieldErrors(error);
       setErrors(nextErrors);
@@ -61,8 +67,8 @@ export const ProfilePage = () => {
             Set the details that identify you in the app.
           </h1>
           <p className="mt-4 leading-[1.6] text-foreground/82">
-            Use a clear name, a recognizable handle, and a short bio so your account feels
-            finished.
+            Use a clear name, a recognizable handle, and a short bio so your
+            account feels finished.
           </p>
         </div>
       </div>
@@ -119,7 +125,11 @@ export const ProfilePage = () => {
             {success}
           </p>
         ) : null}
-        <button className={primaryButtonClass} disabled={submitting} type="submit">
+        <button
+          className={primaryButtonClass}
+          disabled={submitting}
+          type="submit"
+        >
           {submitting ? "Saving..." : "Save Profile"}
         </button>
       </form>

@@ -23,7 +23,8 @@ export const LoginPage = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const nextPath =
-    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/app";
+    (location.state as { from?: { pathname?: string } } | null)?.from
+      ?.pathname ?? "/app";
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -82,7 +83,11 @@ export const LoginPage = () => {
               {errors.credentials ?? errors.form}
             </p>
           ) : null}
-          <button className={primaryButtonClass} disabled={submitting} type="submit">
+          <button
+            className={primaryButtonClass}
+            disabled={submitting}
+            type="submit"
+          >
             {submitting ? "Signing In..." : "Sign In"}
           </button>
         </form>

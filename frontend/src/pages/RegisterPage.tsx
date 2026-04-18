@@ -49,8 +49,8 @@ export const RegisterPage = () => {
           Create your account and start building your musical library.
         </h1>
         <p className="mt-4 leading-[1.6] text-foreground/82">
-          After sign-up, your first step will be finding albums or tracks to save into your
-          catalog.
+          After sign-up, your first step will be finding albums or tracks to
+          save into your catalog.
         </p>
         <form className="mt-7 grid gap-[18px]" onSubmit={submit}>
           <Field
@@ -91,7 +91,11 @@ export const RegisterPage = () => {
               {errors.form}
             </p>
           ) : null}
-          <button className={primaryButtonClass} disabled={submitting} type="submit">
+          <button
+            className={primaryButtonClass}
+            disabled={submitting}
+            type="submit"
+          >
             {submitting ? "Creating Account..." : "Create Account"}
           </button>
         </form>

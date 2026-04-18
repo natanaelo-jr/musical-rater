@@ -181,14 +181,20 @@ export const PeoplePage = () => {
                   {person.username ? `@${person.username}` : "No username yet"}
                 </span>
                 {person.bio ? (
-                  <p className="m-0 leading-[1.6] text-foreground/82">{person.bio}</p>
+                  <p className="m-0 leading-[1.6] text-foreground/82">
+                    {person.bio}
+                  </p>
                 ) : null}
               </div>
               <button
-                className={person.isFollowing ? ghostButtonClass : primaryButtonClass}
+                className={
+                  person.isFollowing ? ghostButtonClass : primaryButtonClass
+                }
                 disabled={updatingId === person.id}
                 onClick={() =>
-                  void (person.isFollowing ? unfollowPerson(person) : followPerson(person))
+                  void (person.isFollowing
+                    ? unfollowPerson(person)
+                    : followPerson(person))
                 }
                 type="button"
               >

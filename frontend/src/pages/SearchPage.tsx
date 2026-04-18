@@ -79,14 +79,17 @@ const formatDate = (value?: string) => {
   }).format(parsed);
 };
 
-const itemKey = (item: CatalogItem) => `${item.sourceProvider}:${item.externalId}`;
+const itemKey = (item: CatalogItem) =>
+  `${item.sourceProvider}:${item.externalId}`;
 
 export const SearchPage = () => {
   const [query, setQuery] = useState("");
   const [type, setType] = useState<SearchType>("all");
   const [results, setResults] = useState<CatalogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle",
+  );
   const [message, setMessage] = useState(initialCopy);
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -148,7 +151,9 @@ export const SearchPage = () => {
             }
 
             return (
-              payload.items.find((item) => itemKey(item) === itemKey(current)) ??
+              payload.items.find(
+                (item) => itemKey(item) === itemKey(current),
+              ) ??
               payload.items[0] ??
               null
             );
@@ -183,11 +188,17 @@ export const SearchPage = () => {
   }, [trimmedQuery, type]);
 
   useEffect(() => {
-    if (!selectedItem?.id || selectedItem.type !== "track" || !selectedItem.imported) {
+    if (
+      !selectedItem?.id ||
+      selectedItem.type !== "track" ||
+      !selectedItem.imported
+    ) {
       return;
     }
 
-    void apiGet<{ rating: Rating | null }>(`/catalog/ratings/${selectedItem.id}`)
+    void apiGet<{ rating: Rating | null }>(
+      `/catalog/ratings/${selectedItem.id}`,
+    )
       .then((payload) => {
         setResults((current) =>
           current.map((entry) =>
@@ -211,14 +222,17 @@ export const SearchPage = () => {
     setImportingId(item.externalId);
 
     try {
-      const payload = await apiRequest<{ item: CatalogItem }>("/catalog/import", {
-        method: "POST",
-        body: JSON.stringify({
-          source_provider: item.sourceProvider,
-          external_id: item.externalId,
-          type: item.type,
-        }),
-      });
+      const payload = await apiRequest<{ item: CatalogItem }>(
+        "/catalog/import",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            source_provider: item.sourceProvider,
+            external_id: item.externalId,
+            type: item.type,
+          }),
+        },
+      );
 
       const importedItem = payload.item;
       setResults((current) =>
@@ -326,10 +340,13 @@ export const SearchPage = () => {
     setSavingRating(true);
 
     try {
-      const payload = await apiRequest<{ rating: Rating }>(`/catalog/ratings/${item.id}`, {
-        method: "POST",
-        body: JSON.stringify({ score }),
-      });
+      const payload = await apiRequest<{ rating: Rating }>(
+        `/catalog/ratings/${item.id}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ score }),
+        },
+      );
       updateItemRating(item.id, payload.rating.score);
       setMessage(`Saved ${payload.rating.score}/5 for "${item.title}".`);
     } catch (error) {
@@ -377,7 +394,9 @@ export const SearchPage = () => {
             <h1 className="m-0 text-[clamp(2rem,4vw,4.5rem)] leading-[0.98]">
               Find the songs and albums you want to rate next.
             </h1>
-            <p className="mt-4 leading-[1.6] text-foreground/82">{initialCopy}</p>
+            <p className="mt-4 leading-[1.6] text-foreground/82">
+              {initialCopy}
+            </p>
           </div>
         </div>
 
@@ -396,13 +415,20 @@ export const SearchPage = () => {
           />
         </label>
 
-        <div aria-live="polite" className="-mt-2 leading-[1.6] text-foreground/82">
+        <div
+          aria-live="polite"
+          className="-mt-2 leading-[1.6] text-foreground/82"
+        >
           {trimmedQuery.length < 2 && trimmedQuery.length > 0
             ? shortQueryCopy
             : "Try searches like Hadestown, Sondheim, or Original Broadway Cast."}
         </div>
 
-        <div aria-label="Search filters" className="flex flex-wrap gap-3" role="group">
+        <div
+          aria-label="Search filters"
+          className="flex flex-wrap gap-3"
+          role="group"
+        >
           {filters.map((filter) => (
             <button
               aria-pressed={type === filter.value}
@@ -422,13 +448,20 @@ export const SearchPage = () => {
 
         <p
           aria-live={status === "error" ? "assertive" : "polite"}
-          className={status === "error" ? "text-danger" : "leading-[1.6] text-foreground/82"}
+          className={
+            status === "error"
+              ? "text-danger"
+              : "leading-[1.6] text-foreground/82"
+          }
           role={status === "error" ? "alert" : "status"}
         >
           {message}
         </p>
 
-        <div className="grid gap-[14px]" aria-busy={status === "loading" || isLoadingMore}>
+        <div
+          className="grid gap-[14px]"
+          aria-busy={status === "loading" || isLoadingMore}
+        >
           {status === "loading" ? (
             <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
               Searching the catalog...
@@ -437,7 +470,9 @@ export const SearchPage = () => {
 
           {status !== "loading" &&
             results.map((item) => {
-              const isSelected = selectedItem ? itemKey(selectedItem) === itemKey(item) : false;
+              const isSelected = selectedItem
+                ? itemKey(selectedItem) === itemKey(item)
+                : false;
 
               return (
                 <button
@@ -471,9 +506,15 @@ export const SearchPage = () => {
                       <span className="text-primary">{item.type}</span>
                       <span>{item.sourceProvider}</span>
                     </div>
-                    <strong className="overflow-hidden text-ellipsis">{item.title}</strong>
-                    <span className="overflow-hidden text-ellipsis">{item.artistName}</span>
-                    <span className="overflow-hidden text-ellipsis">{formatDate(item.releaseDate)}</span>
+                    <strong className="overflow-hidden text-ellipsis">
+                      {item.title}
+                    </strong>
+                    <span className="overflow-hidden text-ellipsis">
+                      {item.artistName}
+                    </span>
+                    <span className="overflow-hidden text-ellipsis">
+                      {formatDate(item.releaseDate)}
+                    </span>
                   </div>
                   <div className="flex flex-wrap items-start justify-end gap-2 md:justify-self-end">
                     <span
@@ -504,7 +545,11 @@ export const SearchPage = () => {
 
         {hasNextPage && results.length > 0 ? (
           <div className="flex justify-start">
-            <button className={ghostButtonClass} onClick={() => void loadMore()} type="button">
+            <button
+              className={ghostButtonClass}
+              onClick={() => void loadMore()}
+              type="button"
+            >
               {isLoadingMore ? "Loading More..." : "Load More"}
             </button>
           </div>
@@ -545,7 +590,9 @@ export const SearchPage = () => {
               <div className="rounded-[18px] bg-white/4 p-4">
                 <dt className="mb-2 text-sm text-primary">Catalog status</dt>
                 <dd className="m-0 leading-[1.6] text-foreground/82">
-                  {selectedItem.imported ? "Saved to your catalog." : "Not saved yet."}
+                  {selectedItem.imported
+                    ? "Saved to your catalog."
+                    : "Not saved yet."}
                 </dd>
               </div>
               {selectedItem.albumTitle ? (
@@ -559,7 +606,9 @@ export const SearchPage = () => {
             </dl>
             <button
               className={primaryButtonClass}
-              disabled={selectedItem.imported || importingId === selectedItem.externalId}
+              disabled={
+                selectedItem.imported || importingId === selectedItem.externalId
+              }
               onClick={() => void importItem(selectedItem)}
               type="button"
             >
@@ -576,7 +625,10 @@ export const SearchPage = () => {
                     ? `Your rating: ${selectedItem.myRating}/5`
                     : "Add a quick rating."}
                 </p>
-                <div className="flex flex-wrap gap-3" aria-label="Rate this track">
+                <div
+                  className="flex flex-wrap gap-3"
+                  aria-label="Rate this track"
+                >
                   {[1, 2, 3, 4, 5].map((score) => (
                     <button
                       aria-pressed={selectedItem.myRating === score}

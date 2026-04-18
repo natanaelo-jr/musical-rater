@@ -17,8 +17,9 @@ export const LandingPage = () => (
         Track the cast albums you love and build a profile around your taste.
       </h1>
       <p className="mt-5 max-w-[48rem] text-[1.05rem] leading-[1.7] text-foreground/82">
-        Start with one flow: create an account, search the catalog, save albums or tracks you care
-        about, and shape the profile that will support future ratings and recommendations.
+        Start with one flow: create an account, search the catalog, save albums
+        or tracks you care about, and shape the profile that will support future
+        ratings and recommendations.
       </p>
       <div className="mt-8 flex flex-wrap items-center gap-4">
         <Link className={primaryButtonClass} to="/register">
