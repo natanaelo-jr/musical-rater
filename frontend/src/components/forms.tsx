@@ -44,7 +44,7 @@ const inferAutoComplete = (label: string, type: string, provided?: string) => {
 };
 
 const fieldClass =
-  "w-full rounded-2xl border border-[rgba(244,239,231,0.14)] bg-[rgba(255,255,255,0.04)] px-4 py-[14px] text-[rgba(244,239,231,0.82)] placeholder:text-[rgba(244,239,231,0.42)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(8,12,22,0.72)]";
+  "w-full rounded-2xl border border-foreground/14 bg-white/4 px-4 py-[14px] text-foreground/82 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-panel";
 
 export const Field = ({
   label,
@@ -68,7 +68,7 @@ export const Field = ({
 
   return (
     <div className="grid gap-2.5">
-      <label className="text-sm text-[#ffbf69]" htmlFor={inputId}>
+      <label className="text-sm text-primary" htmlFor={inputId}>
         {label}
       </label>
       <input
@@ -86,12 +86,12 @@ export const Field = ({
         value={value}
       />
       {helperText ? (
-        <small className="leading-6 text-[rgba(244,239,231,0.68)]" id={helperId}>
+        <small className="leading-6 text-foreground/68" id={helperId}>
           {helperText}
         </small>
       ) : null}
       {error ? (
-        <small className="leading-6 text-[#ff8f8f]" id={errorId} role="alert">
+        <small className="leading-6 text-danger" id={errorId} role="alert">
           {error}
         </small>
       ) : null}
@@ -118,7 +118,7 @@ export const TextAreaField = ({
 
   return (
     <div className="grid gap-2.5">
-      <label className="text-sm text-[#ffbf69]" htmlFor={inputId}>
+      <label className="text-sm text-primary" htmlFor={inputId}>
         {label}
       </label>
       <textarea
@@ -136,12 +136,12 @@ export const TextAreaField = ({
         value={value}
       />
       {helperText ? (
-        <small className="leading-6 text-[rgba(244,239,231,0.68)]" id={helperId}>
+        <small className="leading-6 text-foreground/68" id={helperId}>
           {helperText}
         </small>
       ) : null}
       {error ? (
-        <small className="leading-6 text-[#ff8f8f]" id={errorId} role="alert">
+        <small className="leading-6 text-danger" id={errorId} role="alert">
           {error}
         </small>
       ) : null}

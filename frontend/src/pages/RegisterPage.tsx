@@ -7,11 +7,11 @@ import { useAuth } from "../auth/useAuth";
 import { Field, focusFirstFieldError } from "../components/forms";
 
 const shellClass =
-  "grid min-h-screen items-center bg-[radial-gradient(circle_at_top,rgba(255,184,77,0.2),transparent_30%),linear-gradient(160deg,#0d1321_0%,#151b2e_50%,#091018_100%)] px-5 py-8 text-[#f4efe7] sm:px-8";
+  "grid min-h-screen items-center bg-auth-shell px-5 py-8 text-foreground sm:px-8";
 const cardClass =
-  "mx-auto w-full max-w-[640px] rounded-[28px] border border-[rgba(244,239,231,0.12)] bg-[rgba(8,12,22,0.72)] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.24)] backdrop-blur-[20px]";
+  "mx-auto w-full max-w-[640px] rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]";
 const primaryButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#ffbf69,#ff7b54)] px-[22px] py-[14px] font-bold text-[#1a1124] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1321]";
+  "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 export const RegisterPage = () => {
   const auth = useAuth();
@@ -42,13 +42,13 @@ export const RegisterPage = () => {
   return (
     <main className={shellClass}>
       <section className={cardClass}>
-        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-[#ffbf69]">
+        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
           Create profile
         </p>
         <h1 className="m-0 text-[clamp(2rem,3vw,3rem)] leading-[0.98]">
           Create your account and start building your musical library.
         </h1>
-        <p className="mt-4 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+        <p className="mt-4 leading-[1.6] text-foreground/82">
           After sign-up, your first step will be finding albums or tracks to save into your
           catalog.
         </p>
@@ -87,7 +87,7 @@ export const RegisterPage = () => {
             value={password}
           />
           {errors.form ? (
-            <p aria-live="polite" className="text-[#ff8f8f]">
+            <p aria-live="polite" className="text-danger">
               {errors.form}
             </p>
           ) : null}
@@ -95,10 +95,10 @@ export const RegisterPage = () => {
             {submitting ? "Creating Account..." : "Create Account"}
           </button>
         </form>
-        <p className="mt-4 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+        <p className="mt-4 leading-[1.6] text-foreground/82">
           Already registered?{" "}
           <Link
-            className="font-semibold text-[#ffbf69] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1321]"
+            className="font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             to="/login"
           >
             Sign In

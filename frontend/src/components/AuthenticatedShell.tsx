@@ -13,10 +13,10 @@ const getInitials = (value: string) =>
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
     "inline-flex min-h-[42px] items-center justify-center rounded-full border px-4 py-2.5 text-sm font-semibold transition",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
     isActive
-      ? "border-[rgba(255,191,105,0.46)] bg-[linear-gradient(135deg,rgba(255,191,105,0.22),rgba(255,123,84,0.24))] text-[#fff4df]"
-      : "border-[rgba(244,239,231,0.12)] bg-[rgba(244,239,231,0.05)] text-[#f4efe7] hover:-translate-y-px",
+      ? "border-secondary bg-linear-to-br from-primary/20 to-secondary/28 text-foreground"
+      : "border-foreground/12 bg-foreground/5 text-foreground hover:-translate-y-px",
   ].join(" ");
 
 export const AuthenticatedShell = () => {
@@ -36,24 +36,24 @@ export const AuthenticatedShell = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(255,191,105,0.16),transparent_28%),radial-gradient(circle_at_top_right,rgba(255,123,84,0.13),transparent_30%),linear-gradient(160deg,#0b1220_0%,#121a2d_46%,#08111a_100%)] px-5 py-5 text-[#f4efe7] sm:px-6">
+    <div className="min-h-screen bg-app-shell px-5 py-5 text-foreground sm:px-6">
       <div className="mx-auto max-w-[1240px]">
         <a
-          className="absolute left-5 top-4 z-30 -translate-y-[180%] rounded-full bg-[#ffbf69] px-4 py-3 font-bold text-[#1a1124] transition focus:translate-y-0 focus:shadow-[0_16px_36px_rgba(0,0,0,0.26)] focus:outline-none"
+          className="absolute left-5 top-4 z-30 -translate-y-[180%] rounded-full bg-primary px-4 py-3 font-bold text-white transition focus:translate-y-0 focus:shadow-[0_16px_36px_rgba(0,0,0,0.26)] focus:outline-none"
           href="#app-main"
         >
           Skip to app content
         </a>
 
-        <header className="flex flex-wrap items-center justify-between gap-[18px] rounded-3xl border border-[rgba(244,239,231,0.12)] bg-[rgba(9,14,24,0.72)] px-[22px] py-[18px] shadow-[0_24px_80px_rgba(0,0,0,0.24)] backdrop-blur-[18px]">
+        <header className="flex flex-wrap items-center justify-between gap-[18px] rounded-3xl border border-foreground/12 bg-panel-header px-[22px] py-[18px] shadow-panel backdrop-blur-[18px]">
           <div className="grid gap-1">
-            <p className="m-0 text-[0.72rem] uppercase tracking-[0.16em] text-[#ffbf69]">
+            <p className="m-0 text-[0.72rem] uppercase tracking-[0.16em] text-secondary">
               Private workspace
             </p>
             <div className="flex items-center gap-2.5 text-[1.02rem] font-bold tracking-[0.02em]">
               <span
                 aria-hidden="true"
-                className="h-3 w-3 rounded-full bg-[linear-gradient(135deg,#ffbf69,#ff7b54)] shadow-[0_0_0_6px_rgba(255,191,105,0.12)]"
+                className="h-3 w-3 rounded-full bg-linear-to-br from-primary to-secondary shadow-[0_0_0_6px_rgb(240_68_125_/_0.12)]"
               />
               <Link className="text-inherit no-underline" to="/app">
                 Musical Rater
@@ -77,18 +77,18 @@ export const AuthenticatedShell = () => {
           <div className="flex flex-wrap items-center gap-3">
             <div
               aria-hidden="true"
-              className="grid h-10 w-10 place-items-center rounded-[14px] border border-[rgba(255,191,105,0.2)] bg-[linear-gradient(135deg,rgba(255,191,105,0.24),rgba(255,123,84,0.22))] font-bold text-[#fff4df]"
+              className="grid h-10 w-10 place-items-center rounded-[14px] border border-secondary/20 bg-linear-to-br from-primary/24 to-secondary/22 font-bold text-foreground"
             >
               {getInitials(user.displayName || user.username || user.email)}
             </div>
             <div className="grid min-w-0 gap-0.5">
               <div className="font-bold leading-tight">{user.displayName || "Your profile"}</div>
-              <div className="text-sm text-[rgba(244,239,231,0.7)]">
+              <div className="text-sm text-foreground/70">
                 {user.username ? `@${user.username}` : user.email}
               </div>
             </div>
             <button
-              className="inline-flex min-h-[42px] items-center justify-center rounded-full bg-[rgba(244,239,231,0.08)] px-[22px] py-[14px] font-bold text-[#f4efe7] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]"
+              className="inline-flex min-h-[42px] items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               onClick={() => void handleLogout()}
               type="button"
             >
@@ -98,11 +98,11 @@ export const AuthenticatedShell = () => {
         </header>
 
         {needsProfileSetup ? (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[rgba(255,191,105,0.18)] bg-[rgba(255,191,105,0.08)] px-4 py-[14px] text-[#fff4df]">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-secondary/18 bg-secondary/8 px-4 py-[14px] text-foreground">
             <span>
               Finish your profile so friends and future ratings have a clearer identity to follow.
             </span>
-            <Link className="font-bold text-[#ffbf69]" to="/app/profile">
+            <Link className="font-bold text-primary" to="/app/profile">
               Complete profile
             </Link>
           </div>

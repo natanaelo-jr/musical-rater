@@ -1,1 +1,36 @@
 @import "tailwindcss";
+
+:root {
+  --brand-primary: #ff685e;
+  --brand-secondary: #f0447d;
+  --brand-foreground: #f4efe7;
+  --brand-surface: #040c10;
+  --brand-panel: rgba(8, 12, 22, 0.72);
+  --brand-panel-header: rgba(9, 14, 24, 0.72);
+  --brand-danger: #ff8f8f;
+  --brand-success: #96f7c1;
+  --brand-success-bg: rgba(150, 247, 193, 0.14);
+  --brand-shadow-panel: 0 24px 80px rgba(0, 0, 0, 0.24);
+  --brand-auth-shell:
+    radial-gradient(circle at top, rgba(208, 255, 206, 0.2), transparent 30%),
+    linear-gradient(160deg, #040c10 0%, #151b2e 50%, #091018 100%);
+  --brand-app-shell:
+    radial-gradient(circle at top left, rgba(208, 255, 206, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(240, 68, 125, 0.12), transparent 30%),
+    linear-gradient(160deg, #040c10 0%, #151b2e 50%, #091018 100%);
+}
+
+@theme inline {
+  --color-primary: var(--brand-primary);
+  --color-secondary: var(--brand-secondary);
+  --color-foreground: var(--brand-foreground);
+  --color-surface: var(--brand-surface);
+  --color-panel: var(--brand-panel);
+  --color-panel-header: var(--brand-panel-header);
+  --color-danger: var(--brand-danger);
+  --color-success: var(--brand-success);
+  --color-success-bg: var(--brand-success-bg);
+  --shadow-panel: var(--brand-shadow-panel);
+  --background-image-auth-shell: var(--brand-auth-shell);
+  --background-image-app-shell: var(--brand-app-shell);
+}

@@ -42,13 +42,13 @@ const initialCopy =
   "Search by title, artist, album, or show, then save what belongs in your catalog.";
 const shortQueryCopy = "Use at least 2 characters to search the catalog.";
 const cardClass =
-  "rounded-[28px] border border-[rgba(244,239,231,0.12)] bg-[rgba(8,12,22,0.72)] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.24)] backdrop-blur-[20px]";
+  "rounded-[28px] border border-foreground/12 bg-surface p-8 shadow-panel backdrop-blur-[20px]";
 const chipClass =
-  "rounded-full border px-4 py-2.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]";
+  "rounded-full border px-4 py-2.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const primaryButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#ffbf69,#ff7b54)] px-[22px] py-[14px] font-bold text-[#1a1124] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]";
+  "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const ghostButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-[rgba(244,239,231,0.08)] px-[22px] py-[14px] font-bold text-[#f4efe7] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]";
+  "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 const readError = (error: unknown) => {
   if (error instanceof ApiError) {
@@ -371,21 +371,21 @@ export const SearchPage = () => {
       <article className={`${cardClass} grid content-start gap-6`}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-[#ffbf69]">
+            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
               Catalog search
             </p>
             <h1 className="m-0 text-[clamp(2rem,4vw,4.5rem)] leading-[0.98]">
               Find the songs and albums you want to rate next.
             </h1>
-            <p className="mt-4 leading-[1.6] text-[rgba(244,239,231,0.82)]">{initialCopy}</p>
+            <p className="mt-4 leading-[1.6] text-foreground/82">{initialCopy}</p>
           </div>
         </div>
 
         <label className="grid gap-2.5" htmlFor="catalog-search">
-          <span className="text-sm text-[#ffbf69]">Search query</span>
+          <span className="text-sm text-primary">Search query</span>
           <input
             autoComplete="off"
-            className="w-full rounded-[18px] border border-[rgba(244,239,231,0.14)] bg-[rgba(255,255,255,0.05)] px-[18px] py-4 text-[rgba(244,239,231,0.92)] placeholder:text-[rgba(244,239,231,0.42)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]"
+            className="w-full rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             id="catalog-search"
             name="catalog_search"
             onChange={(event) => setQuery(event.target.value)}
@@ -396,7 +396,7 @@ export const SearchPage = () => {
           />
         </label>
 
-        <div aria-live="polite" className="-mt-2 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+        <div aria-live="polite" className="-mt-2 leading-[1.6] text-foreground/82">
           {trimmedQuery.length < 2 && trimmedQuery.length > 0
             ? shortQueryCopy
             : "Try searches like Hadestown, Sondheim, or Original Broadway Cast."}
@@ -408,8 +408,8 @@ export const SearchPage = () => {
               aria-pressed={type === filter.value}
               className={`${chipClass} ${
                 type === filter.value
-                  ? "border-[rgba(255,191,105,0.45)] bg-[linear-gradient(135deg,rgba(255,191,105,0.22),rgba(255,123,84,0.24))] text-[#fff4df]"
-                  : "border-[rgba(244,239,231,0.14)] bg-[rgba(255,255,255,0.04)] text-[rgba(244,239,231,0.84)]"
+                  ? "border-secondary bg-linear-to-br from-primary/20 to-secondary/28 text-foreground"
+                  : "border-foreground/14 bg-white/4 text-foreground/84"
               }`}
               key={filter.value}
               onClick={() => setType(filter.value)}
@@ -422,7 +422,7 @@ export const SearchPage = () => {
 
         <p
           aria-live={status === "error" ? "assertive" : "polite"}
-          className={status === "error" ? "text-[#ff8f8f]" : "leading-[1.6] text-[rgba(244,239,231,0.82)]"}
+          className={status === "error" ? "text-danger" : "leading-[1.6] text-foreground/82"}
           role={status === "error" ? "alert" : "status"}
         >
           {message}
@@ -430,7 +430,7 @@ export const SearchPage = () => {
 
         <div className="grid gap-[14px]" aria-busy={status === "loading" || isLoadingMore}>
           {status === "loading" ? (
-            <div className="rounded-[22px] border border-dashed border-[rgba(244,239,231,0.12)] bg-[rgba(255,255,255,0.03)] p-7 text-center text-[rgba(244,239,231,0.72)]">
+            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
               Searching the catalog...
             </div>
           ) : null}
@@ -441,10 +441,10 @@ export const SearchPage = () => {
 
               return (
                 <button
-                  className={`grid w-full items-center gap-4 rounded-[22px] border px-4 py-4 text-left text-[#f4efe7] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220] md:grid-cols-[72px_minmax(0,1fr)_auto] ${
+                  className={`grid w-full items-center gap-4 rounded-[22px] border px-4 py-4 text-left text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface md:grid-cols-[72px_minmax(0,1fr)_auto] ${
                     isSelected
-                      ? "border-[rgba(255,191,105,0.55)] bg-[rgba(255,191,105,0.08)]"
-                      : "border-[rgba(244,239,231,0.12)] bg-[rgba(255,255,255,0.04)]"
+                      ? "border-secondary bg-secondary/8"
+                      : "border-foreground/12 bg-white/4"
                   }`}
                   key={itemKey(item)}
                   onClick={() => setSelectedItem(item)}
@@ -454,21 +454,21 @@ export const SearchPage = () => {
                     {item.artworkUrl ? (
                       <img
                         alt={`${item.title} cover`}
-                        className="h-full w-full rounded-[18px] bg-[rgba(255,255,255,0.04)] object-cover"
+                        className="h-full w-full rounded-[18px] bg-white/4 object-cover"
                         height="72"
                         loading="lazy"
                         src={item.artworkUrl}
                         width="72"
                       />
                     ) : (
-                      <div className="grid h-full w-full place-items-center rounded-[18px] bg-[linear-gradient(135deg,rgba(255,191,105,0.28),rgba(255,123,84,0.28))] text-[1.4rem] font-bold">
+                      <div className="grid h-full w-full place-items-center rounded-[18px] bg-linear-to-br from-primary/28 to-secondary/28 text-[1.4rem] font-bold">
                         {item.type === "album" ? "LP" : "♪"}
                       </div>
                     )}
                   </div>
                   <div className="grid min-w-0 gap-1.5">
-                    <div className="flex flex-wrap gap-2.5 text-[0.8rem] uppercase tracking-[0.08em] text-[rgba(244,239,231,0.64)]">
-                      <span className="text-[#ffbf69]">{item.type}</span>
+                    <div className="flex flex-wrap gap-2.5 text-[0.8rem] uppercase tracking-[0.08em] text-foreground/64">
+                      <span className="text-primary">{item.type}</span>
                       <span>{item.sourceProvider}</span>
                     </div>
                     <strong className="overflow-hidden text-ellipsis">{item.title}</strong>
@@ -479,14 +479,14 @@ export const SearchPage = () => {
                     <span
                       className={`self-start rounded-full px-3 py-2 text-[0.78rem] ${
                         item.imported
-                          ? "bg-[rgba(150,247,193,0.14)] text-[#96f7c1]"
-                          : "bg-[rgba(255,255,255,0.08)] text-[rgba(244,239,231,0.78)]"
+                          ? "bg-success-bg text-success"
+                          : "bg-white/8 text-foreground/78"
                       }`}
                     >
                       {item.imported ? "Saved" : "Available"}
                     </span>
                     {item.myRating ? (
-                      <span className="rounded-full bg-[rgba(255,191,105,0.16)] px-3 py-2 text-[0.78rem] font-semibold text-[#fff4df]">
+                      <span className="rounded-full bg-secondary/16 px-3 py-2 text-[0.78rem] font-semibold text-foreground">
                         Rated {item.myRating}/5
                       </span>
                     ) : null}
@@ -496,7 +496,7 @@ export const SearchPage = () => {
             })}
 
           {status === "ready" && results.length === 0 ? (
-            <div className="rounded-[22px] border border-dashed border-[rgba(244,239,231,0.12)] bg-[rgba(255,255,255,0.03)] p-7 text-center text-[rgba(244,239,231,0.72)]">
+            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
               {emptyStateCopy}
             </div>
           ) : null}
@@ -512,7 +512,7 @@ export const SearchPage = () => {
       </article>
 
       <aside className={`${cardClass} grid content-start gap-6`}>
-        <p className="mb-0 text-[0.76rem] uppercase tracking-[0.18em] text-[#ffbf69]">
+        <p className="mb-0 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
           Selection
         </p>
         {selectedItem ? (
@@ -520,38 +520,38 @@ export const SearchPage = () => {
             <h2 className="m-0 text-[clamp(1.6rem,2.4vw,2.4rem)] leading-[1.05]">
               {selectedItem.title}
             </h2>
-            <p className="-mt-4 text-[1.05rem] leading-[1.7] text-[rgba(244,239,231,0.82)]">
+            <p className="-mt-4 text-[1.05rem] leading-[1.7] text-foreground/82">
               {selectedItem.artistName}
             </p>
             <dl className="grid gap-4">
-              <div className="rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4">
-                <dt className="mb-2 text-sm text-[#ffbf69]">Type</dt>
-                <dd className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+              <div className="rounded-[18px] bg-white/4 p-4">
+                <dt className="mb-2 text-sm text-primary">Type</dt>
+                <dd className="m-0 leading-[1.6] text-foreground/82">
                   {selectedItem.type}
                 </dd>
               </div>
-              <div className="rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4">
-                <dt className="mb-2 text-sm text-[#ffbf69]">Release</dt>
-                <dd className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+              <div className="rounded-[18px] bg-white/4 p-4">
+                <dt className="mb-2 text-sm text-primary">Release</dt>
+                <dd className="m-0 leading-[1.6] text-foreground/82">
                   {formatDate(selectedItem.releaseDate)}
                 </dd>
               </div>
-              <div className="rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4">
-                <dt className="mb-2 text-sm text-[#ffbf69]">Provider</dt>
-                <dd className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+              <div className="rounded-[18px] bg-white/4 p-4">
+                <dt className="mb-2 text-sm text-primary">Provider</dt>
+                <dd className="m-0 leading-[1.6] text-foreground/82">
                   {selectedItem.sourceProvider}
                 </dd>
               </div>
-              <div className="rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4">
-                <dt className="mb-2 text-sm text-[#ffbf69]">Catalog status</dt>
-                <dd className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+              <div className="rounded-[18px] bg-white/4 p-4">
+                <dt className="mb-2 text-sm text-primary">Catalog status</dt>
+                <dd className="m-0 leading-[1.6] text-foreground/82">
                   {selectedItem.imported ? "Saved to your catalog." : "Not saved yet."}
                 </dd>
               </div>
               {selectedItem.albumTitle ? (
-                <div className="rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4">
-                  <dt className="mb-2 text-sm text-[#ffbf69]">Album</dt>
-                  <dd className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+                <div className="rounded-[18px] bg-white/4 p-4">
+                  <dt className="mb-2 text-sm text-primary">Album</dt>
+                  <dd className="m-0 leading-[1.6] text-foreground/82">
                     {selectedItem.albumTitle}
                   </dd>
                 </div>
@@ -570,8 +570,8 @@ export const SearchPage = () => {
                   : "Save to My Catalog"}
             </button>
             {selectedItem.type === "track" && selectedItem.imported ? (
-              <div className="grid gap-3 rounded-[22px] bg-[rgba(255,255,255,0.04)] p-5">
-                <p className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+              <div className="grid gap-3 rounded-[22px] bg-white/4 p-5">
+                <p className="m-0 leading-[1.6] text-foreground/82">
                   {selectedItem.myRating
                     ? `Your rating: ${selectedItem.myRating}/5`
                     : "Add a quick rating."}
@@ -580,10 +580,10 @@ export const SearchPage = () => {
                   {[1, 2, 3, 4, 5].map((score) => (
                     <button
                       aria-pressed={selectedItem.myRating === score}
-                      className={`min-h-[44px] min-w-[44px] rounded-full border px-4 py-2 font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220] ${
+                      className={`min-h-[44px] min-w-[44px] rounded-full border px-4 py-2 font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                         selectedItem.myRating === score
-                          ? "border-[rgba(255,191,105,0.46)] bg-[linear-gradient(135deg,rgba(255,191,105,0.22),rgba(255,123,84,0.24))] text-[#fff4df]"
-                          : "border-[rgba(244,239,231,0.12)] bg-[rgba(244,239,231,0.05)] text-[#f4efe7]"
+                          ? "border-secondary bg-linear-to-br from-primary/20 to-secondary/28 text-foreground"
+                          : "border-foreground/12 bg-foreground/5 text-foreground"
                       }`}
                       disabled={savingRating}
                       key={score}
@@ -608,7 +608,7 @@ export const SearchPage = () => {
             ) : null}
           </>
         ) : (
-          <p className="leading-[1.6] text-[rgba(244,239,231,0.82)]">
+          <p className="leading-[1.6] text-foreground/82">
             {status === "idle"
               ? initialCopy
               : "Pick a result to inspect its metadata and save it to your catalog."}

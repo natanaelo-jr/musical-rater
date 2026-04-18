@@ -19,11 +19,11 @@ type FollowingSummary = {
 };
 
 const cardClass =
-  "rounded-[28px] border border-[rgba(244,239,231,0.12)] bg-[rgba(8,12,22,0.72)] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.24)] backdrop-blur-[20px]";
+  "rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]";
 const primaryButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#ffbf69,#ff7b54)] px-[22px] py-[14px] font-bold text-[#1a1124] transition hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]";
+  "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const ghostButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-[rgba(244,239,231,0.08)] px-[22px] py-[14px] font-bold text-[#f4efe7] transition hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]";
+  "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 export const DashboardPage = () => {
   const user = useAuth().user;
@@ -68,13 +68,13 @@ export const DashboardPage = () => {
   return (
     <section className="mx-auto grid max-w-[1120px] gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.8fr)]">
       <article className={`${cardClass} p-10 md:p-10 lg:col-span-2`}>
-        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-[#ffbf69]">
+        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
           Private dashboard
         </p>
         <h1 className="m-0 text-[clamp(2rem,4vw,4.5rem)] leading-[0.98]">
           {user.displayName}, your workspace is ready.
         </h1>
-        <p className="mt-5 max-w-[48rem] text-[1.05rem] leading-[1.7] text-[rgba(244,239,231,0.82)]">
+        <p className="mt-5 max-w-[48rem] text-[1.05rem] leading-[1.7] text-foreground/82">
           {introCopy}
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -96,14 +96,14 @@ export const DashboardPage = () => {
       <section className={`${cardClass} grid gap-5`}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-[#ffbf69]">
+            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
               Recently rated
             </p>
             <h2 className="m-0 text-[clamp(1.6rem,2.4vw,2.4rem)] leading-[1.05]">
               Your latest scores
             </h2>
           </div>
-          <Link className="font-semibold text-[#ffbf69]" to="/app/search">
+          <Link className="font-semibold text-primary" to="/app/search">
             Rate more
           </Link>
         </div>
@@ -111,64 +111,64 @@ export const DashboardPage = () => {
           <div className="grid gap-3">
             {ratings.map((rating) => (
               <article
-                className="grid gap-3 rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                className="grid gap-3 rounded-[18px] bg-white/4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 key={rating.id}
               >
                 <div className="grid gap-1">
                   <strong>{rating.title}</strong>
-                  <span className="text-[rgba(244,239,231,0.78)]">
+                  <span className="text-foreground/78">
                     {rating.artistName}
                     {rating.albumTitle ? ` · ${rating.albumTitle}` : ""}
                   </span>
                 </div>
-                <span className="w-fit rounded-full bg-[rgba(255,191,105,0.16)] px-3 py-2 text-sm font-semibold text-[#fff4df]">
+                <span className="w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold text-foreground">
                   {rating.score}/5
                 </span>
               </article>
             ))}
           </div>
         ) : (
-          <p className="leading-[1.6] text-[rgba(244,239,231,0.82)]">
+          <p className="leading-[1.6] text-foreground/82">
             Rate an imported track and it will land here.
           </p>
         )}
       </section>
 
       <aside className={cardClass}>
-        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-[#ffbf69]">
+        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
           Next actions
         </p>
         <dl className="mt-5 grid gap-[18px]">
-          <div className="rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4">
-            <dt className="mb-2 text-sm text-[#ffbf69]">Search</dt>
-            <dd className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+          <div className="rounded-[18px] bg-white/4 p-4">
+            <dt className="mb-2 text-sm text-primary">Search</dt>
+            <dd className="m-0 leading-[1.6] text-foreground/82">
               Look up songs and albums in the shared catalog.
             </dd>
           </div>
-          <div className="rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4">
-            <dt className="mb-2 text-sm text-[#ffbf69]">Save</dt>
-            <dd className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+          <div className="rounded-[18px] bg-white/4 p-4">
+            <dt className="mb-2 text-sm text-primary">Save</dt>
+            <dd className="m-0 leading-[1.6] text-foreground/82">
               Move selected results into your catalog when you want to keep
               them.
             </dd>
           </div>
-          <div className="rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4">
-            <dt className="mb-2 text-sm text-[#ffbf69]">Profile status</dt>
-            <dd className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+          <div className="rounded-[18px] bg-white/4 p-4">
+            <dt className="mb-2 text-sm text-primary">Profile status</dt>
+            <dd className="m-0 leading-[1.6] text-foreground/82">
               {needsProfileSetup
                 ? "Complete your name, handle, avatar, and bio so your account feels finished."
                 : user.username}
             </dd>
           </div>
-          <div className="rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4">
-            <dt className="mb-2 text-sm text-[#ffbf69]">Taste signal</dt>
-            <dd className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+          <div className="rounded-[18px] bg-white/4 p-4">
+            <dt className="mb-2 text-sm text-primary">Taste signal</dt>
+            <dd className="m-0 leading-[1.6] text-foreground/82">
               {user.bio || "Tell us what you listen to."}
             </dd>
           </div>
-          <div className="rounded-[18px] bg-[rgba(255,255,255,0.04)] p-4">
-            <dt className="mb-2 text-sm text-[#ffbf69]">Following</dt>
-            <dd className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+          <div className="rounded-[18px] bg-white/4 p-4">
+            <dt className="mb-2 text-sm text-primary">Following</dt>
+            <dd className="m-0 leading-[1.6] text-foreground/82">
               {followingCount
                 ? `${followingCount} listener${followingCount === 1 ? "" : "s"}`
                 : "Find listeners to follow."}

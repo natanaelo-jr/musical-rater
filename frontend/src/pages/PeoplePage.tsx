@@ -22,9 +22,9 @@ const readError = (error: unknown) => {
 };
 
 const primaryButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#ffbf69,#ff7b54)] px-[22px] py-[14px] font-bold text-[#1a1124] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]";
+  "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const ghostButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-[rgba(244,239,231,0.08)] px-[22px] py-[14px] font-bold text-[#f4efe7] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]";
+  "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 export const PeoplePage = () => {
   const [query, setQuery] = useState("");
@@ -123,25 +123,25 @@ export const PeoplePage = () => {
 
   return (
     <section className="mx-auto grid max-w-[1120px] gap-6">
-      <article className="rounded-[28px] border border-[rgba(244,239,231,0.12)] bg-[rgba(8,12,22,0.72)] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.24)] backdrop-blur-[20px]">
+      <article className="rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-[#ffbf69]">
+            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
               People
             </p>
             <h1 className="m-0 text-[clamp(2rem,4vw,4rem)] leading-[0.98]">
               Find listeners to follow.
             </h1>
           </div>
-          <Link className="font-semibold text-[#ffbf69]" to="/app">
+          <Link className="font-semibold text-primary" to="/app">
             Back to dashboard
           </Link>
         </div>
 
         <label className="mt-8 grid gap-2.5" htmlFor="people-search">
-          <span className="text-sm text-[#ffbf69]">Search listeners</span>
+          <span className="text-sm text-primary">Search listeners</span>
           <input
-            className="w-full rounded-[18px] border border-[rgba(244,239,231,0.14)] bg-[rgba(255,255,255,0.05)] px-[18px] py-4 text-[rgba(244,239,231,0.92)] placeholder:text-[rgba(244,239,231,0.42)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220]"
+            className="w-full rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             id="people-search"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search by name, username, or email"
@@ -152,7 +152,7 @@ export const PeoplePage = () => {
 
         <p
           className={`mt-4 leading-[1.6] ${
-            status === "error" ? "text-[#ff8f8f]" : "text-[rgba(244,239,231,0.82)]"
+            status === "error" ? "text-danger" : "text-foreground/82"
           }`}
         >
           {message}
@@ -161,10 +161,10 @@ export const PeoplePage = () => {
         <div className="mt-6 grid gap-4">
           {people.map((person) => (
             <article
-              className="grid gap-4 rounded-[22px] border border-[rgba(244,239,231,0.12)] bg-[rgba(255,255,255,0.04)] p-5 md:grid-cols-[72px_minmax(0,1fr)_auto] md:items-center"
+              className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-5 md:grid-cols-[72px_minmax(0,1fr)_auto] md:items-center"
               key={person.id}
             >
-              <div className="grid h-[72px] w-[72px] place-items-center overflow-hidden rounded-[18px] bg-[linear-gradient(135deg,rgba(255,191,105,0.28),rgba(255,123,84,0.28))] text-xl font-bold text-[#fff4df]">
+              <div className="grid h-[72px] w-[72px] place-items-center overflow-hidden rounded-[18px] bg-linear-to-br from-primary/28 to-secondary/28 text-xl font-bold text-foreground">
                 {person.avatarUrl ? (
                   <img
                     alt={`${person.displayName} avatar`}
@@ -177,11 +177,11 @@ export const PeoplePage = () => {
               </div>
               <div className="grid gap-1.5">
                 <strong>{person.displayName}</strong>
-                <span className="text-[rgba(244,239,231,0.72)]">
+                <span className="text-foreground/72">
                   {person.username ? `@${person.username}` : "No username yet"}
                 </span>
                 {person.bio ? (
-                  <p className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">{person.bio}</p>
+                  <p className="m-0 leading-[1.6] text-foreground/82">{person.bio}</p>
                 ) : null}
               </div>
               <button
@@ -202,7 +202,7 @@ export const PeoplePage = () => {
           ))}
 
           {status === "loading" ? (
-            <div className="rounded-[22px] border border-dashed border-[rgba(244,239,231,0.12)] bg-[rgba(255,255,255,0.03)] p-7 text-center text-[rgba(244,239,231,0.72)]">
+            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
               Searching listeners...
             </div>
           ) : null}
