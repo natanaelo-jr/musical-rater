@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
-import "./App.css";
 import { AuthProvider } from "./auth/AuthProvider";
 import { ProtectedRoute, PublicOnlyRoute } from "./auth/RouteGuards";
+import { AuthenticatedShell } from "./components/AuthenticatedShell";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -20,10 +20,12 @@ const App = () => (
         <Route element={<RegisterPage />} path="/register" />
       </Route>
       <Route element={<ProtectedRoute />}>
-        <Route element={<DashboardPage />} path="/app" />
-        <Route element={<PeoplePage />} path="/app/people" />
-        <Route element={<ProfilePage />} path="/app/profile" />
-        <Route element={<SearchPage />} path="/app/search" />
+        <Route element={<AuthenticatedShell />} path="/app">
+          <Route element={<DashboardPage />} index />
+          <Route element={<PeoplePage />} path="people" />
+          <Route element={<SearchPage />} path="search" />
+          <Route element={<ProfilePage />} path="profile" />
+        </Route>
       </Route>
       <Route element={<Navigate replace to="/" />} path="*" />
     </Routes>
