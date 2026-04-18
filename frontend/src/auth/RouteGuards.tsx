@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
-import { useAuth } from "./AuthContext";
+import { useAuth } from "./useAuth";
 
 const LoadingScreen = () => (
   <main className="grid min-h-screen items-center bg-[radial-gradient(circle_at_top,rgba(255,184,77,0.2),transparent_30%),linear-gradient(160deg,#0d1321_0%,#151b2e_50%,#091018_100%)] px-5 py-8 text-[#f4efe7] sm:px-8" aria-busy="true" aria-live="polite">

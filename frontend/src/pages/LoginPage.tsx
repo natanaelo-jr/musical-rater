@@ -2,7 +2,8 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { toFieldErrors, useAuth } from "../auth/AuthContext";
+import { toFieldErrors } from "../auth/authErrors";
+import { useAuth } from "../auth/useAuth";
 import { Field, focusFirstFieldError } from "../components/forms";
 
 const shellClass =

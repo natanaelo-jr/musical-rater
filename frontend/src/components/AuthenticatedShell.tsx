@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 
 const getInitials = (value: string) =>
   value
@@ -65,6 +65,7 @@ export const AuthenticatedShell = () => {
             {[
               { label: "Dashboard", to: "/app" },
               { label: "Search", to: "/app/search" },
+              { label: "People", to: "/app/people" },
               { label: "Profile", to: "/app/profile" },
             ].map((item) => (
               <NavLink className={navLinkClass} end={item.to === "/app"} key={item.to} to={item.to}>

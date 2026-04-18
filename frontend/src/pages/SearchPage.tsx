@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { ApiError, apiRequest } from "../lib/api";
+import { ApiError, apiGet, apiRequest } from "../lib/api";
 
 type SearchType = "all" | "track" | "album";
 
@@ -16,7 +16,14 @@ type CatalogItem = {
   releaseDate?: string;
   durationSeconds?: number;
   imported: boolean;
+  myRating?: number;
   metadata?: Record<string, unknown>;
+};
+
+type Rating = {
+  id: number;
+  musicId: number;
+  score: number;
 };
 
 type SearchResponse = {
@@ -85,6 +92,7 @@ export const SearchPage = () => {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [importingId, setImportingId] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [savingRating, setSavingRating] = useState(false);
   const requestIdRef = useRef(0);
 
   const trimmedQuery = query.trim();
@@ -134,7 +142,17 @@ export const SearchPage = () => {
           }
 
           setResults(payload.items);
-          setSelectedItem(payload.items[0] ?? null);
+          setSelectedItem((current) => {
+            if (!current) {
+              return payload.items[0] ?? null;
+            }
+
+            return (
+              payload.items.find((item) => itemKey(item) === itemKey(current)) ??
+              payload.items[0] ??
+              null
+            );
+          });
           setPage(payload.page);
           setHasNextPage(payload.hasNextPage);
           setStatus("ready");
@@ -163,6 +181,31 @@ export const SearchPage = () => {
       window.clearTimeout(timeoutId);
     };
   }, [trimmedQuery, type]);
+
+  useEffect(() => {
+    if (!selectedItem?.id || selectedItem.type !== "track" || !selectedItem.imported) {
+      return;
+    }
+
+    void apiGet<{ rating: Rating | null }>(`/catalog/ratings/${selectedItem.id}`)
+      .then((payload) => {
+        setResults((current) =>
+          current.map((entry) =>
+            entry.id === selectedItem.id
+              ? { ...entry, myRating: payload.rating?.score }
+              : entry,
+          ),
+        );
+        setSelectedItem((current) =>
+          current && current.id === selectedItem.id
+            ? { ...current, myRating: payload.rating?.score }
+            : current,
+        );
+      })
+      .catch((error: unknown) => {
+        setMessage(readError(error));
+      });
+  }, [selectedItem?.id, selectedItem?.imported, selectedItem?.type]);
 
   const importItem = async (item: CatalogItem) => {
     setImportingId(item.externalId);
@@ -245,7 +288,7 @@ export const SearchPage = () => {
       setStatus("ready");
       setMessage(
         payload.items.length
-          ? `Loaded page ${payload.page}. ${payload.hasNextPage ? "Load more to keep browsing." : "You have reached the end of the current results."}`
+          ? `Loaded page ${payload.page}. ${payload.hasNextPage ? " Load more to keep browsing." : " You have reached the end of the current results."}`
           : "No additional results were returned.",
       );
     } catch (error) {
@@ -259,6 +302,60 @@ export const SearchPage = () => {
       if (requestId === requestIdRef.current) {
         setIsLoadingMore(false);
       }
+    }
+  };
+
+  const updateItemRating = (itemId: number, score?: number) => {
+    setResults((current) =>
+      current.map((entry) =>
+        entry.id === itemId ? { ...entry, myRating: score } : entry,
+      ),
+    );
+    setSelectedItem((current) =>
+      current && current.id === itemId
+        ? { ...current, myRating: score }
+        : current,
+    );
+  };
+
+  const rateItem = async (item: CatalogItem, score: number) => {
+    if (!item.id) {
+      return;
+    }
+
+    setSavingRating(true);
+
+    try {
+      const payload = await apiRequest<{ rating: Rating }>(`/catalog/ratings/${item.id}`, {
+        method: "POST",
+        body: JSON.stringify({ score }),
+      });
+      updateItemRating(item.id, payload.rating.score);
+      setMessage(`Saved ${payload.rating.score}/5 for "${item.title}".`);
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setSavingRating(false);
+    }
+  };
+
+  const clearRating = async (item: CatalogItem) => {
+    if (!item.id) {
+      return;
+    }
+
+    setSavingRating(true);
+
+    try {
+      await apiRequest<{ rating: null }>(`/catalog/ratings/${item.id}`, {
+        method: "DELETE",
+      });
+      updateItemRating(item.id);
+      setMessage(`Cleared your rating for "${item.title}".`);
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setSavingRating(false);
     }
   };
 
@@ -378,15 +475,22 @@ export const SearchPage = () => {
                     <span className="overflow-hidden text-ellipsis">{item.artistName}</span>
                     <span className="overflow-hidden text-ellipsis">{formatDate(item.releaseDate)}</span>
                   </div>
-                  <span
-                    className={`self-start rounded-full px-3 py-2 text-[0.78rem] ${
-                      item.imported
-                        ? "bg-[rgba(150,247,193,0.14)] text-[#96f7c1]"
-                        : "bg-[rgba(255,255,255,0.08)] text-[rgba(244,239,231,0.78)]"
-                    } md:justify-self-end`}
-                  >
-                    {item.imported ? "Saved" : "Available"}
-                  </span>
+                  <div className="flex flex-wrap items-start justify-end gap-2 md:justify-self-end">
+                    <span
+                      className={`self-start rounded-full px-3 py-2 text-[0.78rem] ${
+                        item.imported
+                          ? "bg-[rgba(150,247,193,0.14)] text-[#96f7c1]"
+                          : "bg-[rgba(255,255,255,0.08)] text-[rgba(244,239,231,0.78)]"
+                      }`}
+                    >
+                      {item.imported ? "Saved" : "Available"}
+                    </span>
+                    {item.myRating ? (
+                      <span className="rounded-full bg-[rgba(255,191,105,0.16)] px-3 py-2 text-[0.78rem] font-semibold text-[#fff4df]">
+                        Rated {item.myRating}/5
+                      </span>
+                    ) : null}
+                  </div>
                 </button>
               );
             })}
@@ -465,6 +569,43 @@ export const SearchPage = () => {
                   ? "Saving..."
                   : "Save to My Catalog"}
             </button>
+            {selectedItem.type === "track" && selectedItem.imported ? (
+              <div className="grid gap-3 rounded-[22px] bg-[rgba(255,255,255,0.04)] p-5">
+                <p className="m-0 leading-[1.6] text-[rgba(244,239,231,0.82)]">
+                  {selectedItem.myRating
+                    ? `Your rating: ${selectedItem.myRating}/5`
+                    : "Add a quick rating."}
+                </p>
+                <div className="flex flex-wrap gap-3" aria-label="Rate this track">
+                  {[1, 2, 3, 4, 5].map((score) => (
+                    <button
+                      aria-pressed={selectedItem.myRating === score}
+                      className={`min-h-[44px] min-w-[44px] rounded-full border px-4 py-2 font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffbf69] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1220] ${
+                        selectedItem.myRating === score
+                          ? "border-[rgba(255,191,105,0.46)] bg-[linear-gradient(135deg,rgba(255,191,105,0.22),rgba(255,123,84,0.24))] text-[#fff4df]"
+                          : "border-[rgba(244,239,231,0.12)] bg-[rgba(244,239,231,0.05)] text-[#f4efe7]"
+                      }`}
+                      disabled={savingRating}
+                      key={score}
+                      onClick={() => void rateItem(selectedItem, score)}
+                      type="button"
+                    >
+                      {score}
+                    </button>
+                  ))}
+                  {selectedItem.myRating ? (
+                    <button
+                      className={ghostButtonClass}
+                      disabled={savingRating}
+                      onClick={() => void clearRating(selectedItem)}
+                      type="button"
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </>
         ) : (
           <p className="leading-[1.6] text-[rgba(244,239,231,0.82)]">

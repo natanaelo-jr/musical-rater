@@ -1,34 +1,29 @@
 import {
-  createContext,
   type PropsWithChildren,
   startTransition,
-  useContext,
+  useCallback,
   useEffect,
   useState,
 } from "react";
 
-import { ApiError, apiGet, apiRequest, ensureCsrfToken } from "../lib/api";
+import { AuthContext } from "./AuthContext";
+import type { AuthState, User } from "./AuthContext";
+import { apiGet, apiRequest, ensureCsrfToken } from "../lib/api";
 
-export type User = {
-  id: string;
-  email: string;
-  displayName: string;
-  username: string;
-  avatarUrl: string;
-  bio: string;
-};
-
-type AuthState = "loading" | "authenticated" | "anonymous";
-
-type RegisterInput = {
-  email: string;
-  password: string;
-  displayName: string;
+type AuthResponse = {
+  authenticated: boolean;
+  user: User | null;
 };
 
 type LoginInput = {
   email: string;
   password: string;
+};
+
+type RegisterInput = {
+  email: string;
+  password: string;
+  displayName: string;
 };
 
 type ProfileInput = {
@@ -38,45 +33,11 @@ type ProfileInput = {
   bio: string;
 };
 
-type FieldErrors = Record<string, string>;
-
-type AuthContextValue = {
-  status: AuthState;
-  user: User | null;
-  login: (input: LoginInput) => Promise<User>;
-  register: (input: RegisterInput) => Promise<User>;
-  logout: () => Promise<void>;
-  refresh: () => Promise<void>;
-  updateProfile: (input: ProfileInput) => Promise<User>;
-};
-
-type AuthResponse = {
-  authenticated: boolean;
-  user: User | null;
-};
-
-const AuthContext = createContext<AuthContextValue | null>(null);
-
-const readErrors = (error: unknown) => {
-  if (!(error instanceof ApiError)) {
-    return { form: "Unexpected error. Please try again." };
-  }
-
-  const payloadErrors = error.payload?.errors;
-  if (payloadErrors && typeof payloadErrors === "object") {
-    return payloadErrors as FieldErrors;
-  }
-
-  return { form: error.message };
-};
-
-export const toFieldErrors = readErrors;
-
 export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [status, setStatus] = useState<AuthState>("loading");
   const [user, setUser] = useState<User | null>(null);
 
-  const applyAuth = (payload: AuthResponse) => {
+  const applyAuth = useCallback((payload: AuthResponse) => {
     startTransition(() => {
       if (payload.authenticated && payload.user) {
         setUser(payload.user);
@@ -87,20 +48,20 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       setUser(null);
       setStatus("anonymous");
     });
-  };
+  }, []);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     await ensureCsrfToken();
     const payload = await apiGet<AuthResponse>("/auth/me");
     applyAuth(payload);
-  };
+  }, [applyAuth]);
 
   useEffect(() => {
     void refresh().catch(() => {
       setUser(null);
       setStatus("anonymous");
     });
-  }, []);
+  }, [refresh]);
 
   const login = async (input: LoginInput) => {
     const payload = await apiRequest<AuthResponse>("/auth/login", {
@@ -146,25 +107,24 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       }),
     });
 
-    const nextUser = payload.user;
-    setUser(nextUser);
+    setUser(payload.user);
     setStatus("authenticated");
-    return nextUser;
+    return payload.user;
   };
 
   return (
     <AuthContext.Provider
-      value={{ status, user, login, register, logout, refresh: () => refresh(), updateProfile }}
+      value={{
+        status,
+        user,
+        refresh,
+        login,
+        register,
+        logout,
+        updateProfile,
+      }}
     >
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const value = useContext(AuthContext);
-  if (!value) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-  return value;
 };

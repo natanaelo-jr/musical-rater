@@ -1,11 +1,12 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
-import { AuthProvider } from "./auth/AuthContext";
+import { AuthProvider } from "./auth/AuthProvider";
 import { ProtectedRoute, PublicOnlyRoute } from "./auth/RouteGuards";
 import { AuthenticatedShell } from "./components/AuthenticatedShell";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
+import { PeoplePage } from "./pages/PeoplePage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { SearchPage } from "./pages/SearchPage";
@@ -21,6 +22,7 @@ const App = () => (
       <Route element={<ProtectedRoute />}>
         <Route element={<AuthenticatedShell />} path="/app">
           <Route element={<DashboardPage />} index />
+          <Route element={<PeoplePage />} path="people" />
           <Route element={<SearchPage />} path="search" />
           <Route element={<ProfilePage />} path="profile" />
         </Route>

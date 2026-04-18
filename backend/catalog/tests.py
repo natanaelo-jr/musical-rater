@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from catalog.models import Album, Artist, Music
+from catalog.models import Album, Artist, Music, Rating
 
 
 class CatalogApiTests(TestCase):
@@ -39,11 +39,15 @@ class CatalogApiTests(TestCase):
             "hasNextPage": False,
         }
 
-        response = self.client.get("/api/catalog/search", {"q": "hamilton", "type": "album"})
+        response = self.client.get(
+            "/api/catalog/search", {"q": "hamilton", "type": "album"}
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["items"][0]["title"], "Hamilton")
-        search_catalog_mock.assert_called_once_with(query="hamilton", result_type="album", page=1)
+        search_catalog_mock.assert_called_once_with(
+            query="hamilton", result_type="album", page=1
+        )
 
     def test_search_rejects_blank_query(self):
         self.client.force_login(self.user)
@@ -51,7 +55,9 @@ class CatalogApiTests(TestCase):
         response = self.client.get("/api/catalog/search", {"q": " "})
 
         self.assertEqual(response.status_code, 422)
-        self.assertEqual(response.json()["errors"]["q"], "Query must have at least 2 characters.")
+        self.assertEqual(
+            response.json()["errors"]["q"], "Query must have at least 2 characters."
+        )
 
     def test_import_requires_authentication(self):
         response = self.client.post(
@@ -99,6 +105,100 @@ class CatalogApiTests(TestCase):
             source_provider="musicbrainz",
             external_id="release-1",
             item_type="album",
+        )
+
+    def test_save_rating_requires_authentication(self):
+        music = self._create_music()
+
+        response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 4},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_save_rating_creates_or_updates_user_rating(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        first_response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 4},
+            content_type="application/json",
+        )
+        second_response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 5},
+            content_type="application/json",
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(second_response.json()["rating"]["score"], 5)
+        self.assertEqual(Rating.objects.count(), 1)
+
+    def test_save_rating_rejects_out_of_range_score(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 6},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["errors"]["score"], "Score must be between 1 and 5."
+        )
+
+    def test_get_rating_returns_current_user_rating(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Rating.objects.create(user=self.user, music=music, score=3)
+
+        response = self.client.get(f"/api/catalog/ratings/{music.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["rating"]["score"], 3)
+
+    def test_list_ratings_returns_recent_user_ratings(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Rating.objects.create(user=self.user, music=music, score=4)
+
+        response = self.client.get("/api/catalog/ratings")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["title"], "My Shot")
+        self.assertEqual(
+            response.json()["items"][0]["artistName"], "Lin-Manuel Miranda"
+        )
+        self.assertEqual(response.json()["items"][0]["score"], 4)
+
+    def test_clear_rating_removes_current_user_rating(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Rating.objects.create(user=self.user, music=music, score=3)
+
+        response = self.client.delete(f"/api/catalog/ratings/{music.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["rating"])
+        self.assertEqual(Rating.objects.count(), 0)
+
+    def _create_music(self):
+        artist = Artist.objects.create(
+            name="Lin-Manuel Miranda",
+            source_provider="musicbrainz",
+            external_id="artist-1",
+        )
+        return Music.objects.create(
+            title="My Shot",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="recording-1",
         )
 
 

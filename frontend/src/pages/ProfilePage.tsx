@@ -1,7 +1,8 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 
-import { toFieldErrors, useAuth } from "../auth/AuthContext";
+import { toFieldErrors } from "../auth/authErrors";
+import { useAuth } from "../auth/useAuth";
 import { Field, TextAreaField, focusFirstFieldError } from "../components/forms";
 
 const cardClass =

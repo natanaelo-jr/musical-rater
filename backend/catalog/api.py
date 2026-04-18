@@ -1,6 +1,7 @@
 from django.http import JsonResponse
 from ninja import Router, Schema
 
+from catalog.models import Music, Rating
 from catalog.services import import_catalog_item, search_catalog
 
 catalog_router = Router(tags=["catalog"])
@@ -22,6 +23,28 @@ class CatalogImportInput(Schema):
     type: str
 
 
+class RatingInput(Schema):
+    score: int
+
+
+def serialize_rating(rating):
+    return {
+        "id": rating.id,
+        "musicId": rating.music_id,
+        "score": rating.score,
+    }
+
+
+def serialize_rating_summary(rating):
+    return {
+        **serialize_rating(rating),
+        "title": rating.music.title,
+        "artistName": rating.music.primary_artist.name,
+        "albumTitle": rating.music.album.title if rating.music.album_id else "",
+        "artworkUrl": rating.music.cover_url,
+    }
+
+
 @catalog_router.get("/search")
 def search_catalog_view(request, q: str, type: str = "all", page: int = 1):
     auth_error = auth_required(request)
@@ -41,7 +64,69 @@ def search_catalog_view(request, q: str, type: str = "all", page: int = 1):
     except ValueError as error:
         return JsonResponse({"detail": str(error)}, status=422)
     except Exception:
-        return JsonResponse({"detail": "Catalog provider is currently unavailable."}, status=502)
+        return JsonResponse(
+            {"detail": "Catalog provider is currently unavailable."}, status=502
+        )
+
+
+@catalog_router.get("/ratings")
+def list_ratings_view(request):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    ratings = (
+        Rating.objects.filter(user=request.user)
+        .select_related("music", "music__primary_artist", "music__album")
+        .order_by("-updated_at")[:5]
+    )
+    return {"items": [serialize_rating_summary(rating) for rating in ratings]}
+
+
+@catalog_router.get("/ratings/{music_id}")
+def get_rating_view(request, music_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Music.objects.filter(id=music_id).exists():
+        return JsonResponse({"detail": "Track not found."}, status=404)
+
+    rating = Rating.objects.filter(user=request.user, music_id=music_id).first()
+    return {"rating": serialize_rating(rating) if rating else None}
+
+
+@catalog_router.post("/ratings/{music_id}")
+def save_rating_view(request, music_id: int, payload: RatingInput):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if payload.score < 1 or payload.score > 5:
+        return validation_error({"score": "Score must be between 1 and 5."})
+
+    if not Music.objects.filter(id=music_id).exists():
+        return JsonResponse({"detail": "Track not found."}, status=404)
+
+    rating, _ = Rating.objects.update_or_create(
+        user=request.user,
+        music_id=music_id,
+        defaults={"score": payload.score},
+    )
+    return {"rating": serialize_rating(rating)}
+
+
+@catalog_router.delete("/ratings/{music_id}")
+def clear_rating_view(request, music_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Music.objects.filter(id=music_id).exists():
+        return JsonResponse({"detail": "Track not found."}, status=404)
+
+    Rating.objects.filter(user=request.user, music_id=music_id).delete()
+    return {"rating": None}
 
 
 @catalog_router.post("/import")
@@ -59,5 +144,6 @@ def import_catalog_view(request, payload: CatalogImportInput):
     except ValueError as error:
         return JsonResponse({"detail": str(error)}, status=422)
     except Exception:
-        return JsonResponse({"detail": "Catalog provider is currently unavailable."}, status=502)
-
+        return JsonResponse(
+            {"detail": "Catalog provider is currently unavailable."}, status=502
+        )
