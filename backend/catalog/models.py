@@ -100,3 +100,48 @@ class Rating(models.Model):
 
     def __str__(self):
         return f"{self.user_id} rated {self.music_id}: {self.score}"
+
+
+class Favorite(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorites"
+    )
+    music = models.ForeignKey(
+        Music,
+        on_delete=models.CASCADE,
+        related_name="favorited_by",
+        null=True,
+        blank=True,
+    )
+    album = models.ForeignKey(
+        Album,
+        on_delete=models.CASCADE,
+        related_name="favorited_by",
+        null=True,
+        blank=True,
+    )
+    position = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "music"],
+                name="catalog_favorite_user_music_unique",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "album"],
+                name="catalog_favorite_user_album_unique",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    (models.Q(music__isnull=False) & models.Q(album__isnull=True))
+                    | (models.Q(music__isnull=True) & models.Q(album__isnull=False))
+                ),
+                name="catalog_favorite_single_target",
+            ),
+        ]
+
+    def __str__(self):
+        target = self.music_id or self.album_id
+        return f"{self.user_id} favorited {target}"

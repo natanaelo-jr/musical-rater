@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from catalog.models import Album, Artist, Music, Rating
+from catalog.models import Album, Artist, Favorite, Music, Rating
 
 
 class CatalogApiTests(TestCase):
@@ -188,6 +188,85 @@ class CatalogApiTests(TestCase):
         self.assertIsNone(response.json()["rating"])
         self.assertEqual(Rating.objects.count(), 0)
 
+    def test_list_favorites_requires_authentication(self):
+        response = self.client.get("/api/catalog/favorites")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_save_track_favorite_imports_item_and_returns_payload(self):
+        self.client.force_login(self.user)
+
+        with patch("catalog.api.ensure_catalog_item") as ensure_catalog_item_mock:
+            music = self._create_music()
+            ensure_catalog_item_mock.return_value = music
+
+            response = self.client.post(
+                "/api/catalog/favorites",
+                data={
+                    "source_provider": "musicbrainz",
+                    "external_id": "recording-1",
+                    "type": "track",
+                },
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["favorite"]["item"]["title"], "My Shot")
+        self.assertEqual(Favorite.objects.count(), 1)
+
+    def test_save_album_favorite_is_idempotent(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+
+        first_response = self.client.post(
+            "/api/catalog/favorites",
+            data={
+                "source_provider": "musicbrainz",
+                "external_id": album.external_id,
+                "type": "album",
+            },
+            content_type="application/json",
+        )
+        second_response = self.client.post(
+            "/api/catalog/favorites",
+            data={
+                "source_provider": "musicbrainz",
+                "external_id": album.external_id,
+                "type": "album",
+            },
+            content_type="application/json",
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(Favorite.objects.count(), 1)
+
+    def test_list_favorites_returns_tracks_and_albums(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        album = self._create_album()
+        Favorite.objects.create(user=self.user, music=music, position=1)
+        Favorite.objects.create(user=self.user, album=album, position=2)
+
+        response = self.client.get("/api/catalog/favorites")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["items"]), 2)
+        self.assertEqual(response.json()["items"][0]["item"]["type"], "track")
+        self.assertEqual(response.json()["items"][1]["item"]["type"], "album")
+
+    def test_delete_favorite_removes_item(self):
+        self.client.force_login(self.user)
+        favorite = Favorite.objects.create(
+            user=self.user, music=self._create_music(), position=1
+        )
+
+        response = self.client.delete(f"/api/catalog/favorites/{favorite.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ok": True})
+        self.assertEqual(Favorite.objects.count(), 0)
+
     def _create_music(self):
         artist = Artist.objects.create(
             name="Lin-Manuel Miranda",
@@ -199,6 +278,19 @@ class CatalogApiTests(TestCase):
             primary_artist=artist,
             source_provider="musicbrainz",
             external_id="recording-1",
+        )
+
+    def _create_album(self):
+        artist, _ = Artist.objects.get_or_create(
+            name="Original Broadway Cast",
+            source_provider="musicbrainz",
+            external_id="artist-2",
+        )
+        return Album.objects.create(
+            title="Hamilton",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="release-1",
         )
 
 
