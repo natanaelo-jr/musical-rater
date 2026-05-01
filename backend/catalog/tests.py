@@ -3,7 +3,15 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from catalog.models import Album, Artist, Favorite, Music, Rating, SavedAlbum
+from catalog.models import (
+    Album,
+    Artist,
+    Favorite,
+    Music,
+    Rating,
+    RatingComment,
+    SavedAlbum,
+)
 
 
 class CatalogApiTests(TestCase):
@@ -349,6 +357,92 @@ class CatalogApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["savedAlbum"])
         self.assertEqual(SavedAlbum.objects.count(), 0)
+
+    def test_list_rating_comments_returns_empty(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        rating = Rating.objects.create(user=self.user, music=music, score=4)
+
+        response = self.client.get(f"/api/catalog/music-ratings/{rating.id}/comments")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"], [])
+
+    def test_create_rating_comment_and_list_thread(self):
+        owner = self.user
+        commenter = get_user_model().objects.create_user(
+            email="fan@example.com",
+            password="StrongPass123!",
+        )
+        music = self._create_music()
+        rating = Rating.objects.create(user=owner, music=music, score=5, review="Bold.")
+
+        self.client.force_login(commenter)
+        first = self.client.post(
+            f"/api/catalog/music-ratings/{rating.id}/comments",
+            data={"body": "Fully agree."},
+            content_type="application/json",
+        )
+        self.assertEqual(first.status_code, 200)
+        parent_id = first.json()["comment"]["id"]
+
+        second = self.client.post(
+            f"/api/catalog/music-ratings/{rating.id}/comments",
+            data={"body": "Same here.", "parent_id": parent_id},
+            content_type="application/json",
+        )
+        self.assertEqual(second.status_code, 200)
+
+        list_response = self.client.get(
+            f"/api/catalog/music-ratings/{rating.id}/comments",
+        )
+        self.assertEqual(list_response.status_code, 200)
+        items = list_response.json()["items"]
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["body"], "Fully agree.")
+        self.assertEqual(len(items[0]["replies"]), 1)
+        self.assertEqual(items[0]["replies"][0]["body"], "Same here.")
+
+    def test_rating_comment_rejects_nested_reply(self):
+        owner = self.user
+        commenter = get_user_model().objects.create_user(
+            email="fan2@example.com",
+            password="StrongPass123!",
+        )
+        music = self._create_music()
+        rating = Rating.objects.create(user=owner, music=music, score=3)
+        root = RatingComment.objects.create(
+            rating=rating, user=commenter, body="Root"
+        )
+        reply = RatingComment.objects.create(
+            rating=rating, user=owner, parent=root, body="Reply"
+        )
+
+        self.client.force_login(commenter)
+        response = self.client.post(
+            f"/api/catalog/music-ratings/{rating.id}/comments",
+            data={"body": "Too deep", "parent_id": reply.id},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["detail"],
+            "You can only reply to a top-level comment.",
+        )
+
+    def test_delete_own_rating_comment(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        rating = Rating.objects.create(user=self.user, music=music, score=4)
+        comment = RatingComment.objects.create(
+            rating=rating, user=self.user, body="Scratch that"
+        )
+
+        response = self.client.delete(
+            f"/api/catalog/music-ratings/comments/{comment.id}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(RatingComment.objects.count(), 0)
 
     def _create_music(self):
         artist = Artist.objects.create(

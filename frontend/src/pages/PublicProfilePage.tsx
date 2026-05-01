@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { RatingCommentsSection } from "../components/RatingCommentsSection";
 import { ApiError, apiGet, apiRequest } from "../lib/api";
 
 type PublicProfile = {
@@ -377,6 +378,9 @@ export const PublicProfilePage = () => {
                     <time className="text-sm text-foreground/62">
                       {formatDate(rating.updatedAt)}
                     </time>
+                  </div>
+                  <div className="md:col-span-3">
+                    <RatingCommentsSection ratingId={rating.id} />
                   </div>
                 </article>
               ))}

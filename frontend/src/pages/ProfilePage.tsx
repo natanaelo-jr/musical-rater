@@ -5,6 +5,7 @@ import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
 import { focusFirstFieldError } from "../components/formUtils";
 import { Field, TextAreaField } from "../components/forms";
+import { RatingCommentsSection } from "../components/RatingCommentsSection";
 import { apiGet, apiRequest } from "../lib/api";
 
 type RatingSummary = {
@@ -403,6 +404,9 @@ export const ProfilePage = () => {
                     <span className="h-fit w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold">
                       {rating.score}/5
                     </span>
+                    <div className="sm:col-span-3">
+                      <RatingCommentsSection ratingId={rating.id} />
+                    </div>
                   </article>
                 ))}
               </div>

@@ -1,7 +1,14 @@
 from django.http import JsonResponse
 from ninja import Router, Schema
 
-from catalog.models import Album, Favorite, Music, Rating, SavedAlbum
+from catalog.models import (
+    Album,
+    Favorite,
+    Music,
+    Rating,
+    RatingComment,
+    SavedAlbum,
+)
 from catalog.services import import_catalog_item, search_catalog
 
 catalog_router = Router(tags=["catalog"])
@@ -26,6 +33,11 @@ class CatalogImportInput(Schema):
 class RatingInput(Schema):
     score: int
     review: str = ""
+
+
+class RatingCommentInput(Schema):
+    body: str
+    parent_id: int | None = None
 
 
 def serialize_rating(rating):
@@ -71,6 +83,26 @@ def serialize_saved_album(saved_album):
         "artworkUrl": album.cover_url,
         "releaseDate": album.release_date,
         "createdAt": saved_album.created_at.isoformat(),
+    }
+
+
+def _serialize_comment_author(user):
+    profile = user.profile
+    return {
+        "id": str(user.id),
+        "displayName": profile.display_name,
+        "username": profile.username or "",
+        "avatarUrl": profile.avatar_url,
+    }
+
+
+def serialize_rating_comment(comment):
+    return {
+        "id": comment.id,
+        "body": comment.body,
+        "createdAt": comment.created_at.isoformat(),
+        "author": _serialize_comment_author(comment.user),
+        "parentId": comment.parent_id,
     }
 
 
@@ -297,6 +329,105 @@ def clear_rating_view(request, music_id: int):
 
     Rating.objects.filter(user=request.user, music_id=music_id).delete()
     return {"rating": None}
+
+
+@catalog_router.get("/music-ratings/{rating_id}/comments")
+def list_rating_comments_view(request, rating_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Rating.objects.filter(id=rating_id).exists():
+        return JsonResponse({"detail": "Rating not found."}, status=404)
+
+    comments = list(
+        RatingComment.objects.filter(rating_id=rating_id)
+        .select_related("user", "user__profile")
+        .order_by("created_at")
+    )
+    reply_map = {}
+    for comment in comments:
+        if comment.parent_id:
+            reply_map.setdefault(comment.parent_id, []).append(comment)
+
+    items = []
+    for comment in comments:
+        if comment.parent_id is not None:
+            continue
+        item = serialize_rating_comment(comment)
+        item["replies"] = [
+            serialize_rating_comment(reply) for reply in reply_map.get(comment.id, [])
+        ]
+        items.append(item)
+
+    return {"items": items}
+
+
+@catalog_router.post("/music-ratings/{rating_id}/comments")
+def create_rating_comment_view(request, rating_id: int, payload: RatingCommentInput):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    try:
+        rating = Rating.objects.select_related("music").get(id=rating_id)
+    except Rating.DoesNotExist:
+        return JsonResponse({"detail": "Rating not found."}, status=404)
+
+    body = payload.body.strip()
+    if not body:
+        return validation_error({"body": "Comment cannot be empty."})
+    if len(body) > 2000:
+        return validation_error(
+            {"body": "Comment must be 2000 characters or less."},
+        )
+
+    parent = None
+    if payload.parent_id is not None:
+        try:
+            parent = RatingComment.objects.get(
+                id=payload.parent_id, rating_id=rating_id
+            )
+        except RatingComment.DoesNotExist:
+            return JsonResponse({"detail": "Parent comment not found."}, status=404)
+        if parent.parent_id is not None:
+            return JsonResponse(
+                {"detail": "You can only reply to a top-level comment."}, status=422
+            )
+
+    comment = RatingComment.objects.create(
+        rating=rating,
+        user=request.user,
+        parent=parent,
+        body=body,
+    )
+    comment = (
+        RatingComment.objects.filter(id=comment.id)
+        .select_related("user", "user__profile")
+        .get()
+    )
+
+    payload_out = serialize_rating_comment(comment)
+    payload_out["replies"] = []
+    return {"comment": payload_out}
+
+
+@catalog_router.delete("/music-ratings/comments/{comment_id}")
+def delete_rating_comment_view(request, comment_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    comment = (
+        RatingComment.objects.filter(id=comment_id, user=request.user)
+        .select_related("rating")
+        .first()
+    )
+    if comment is None:
+        return JsonResponse({"detail": "Comment not found."}, status=404)
+
+    comment.delete()
+    return {"ok": True}
 
 
 @catalog_router.post("/import")
