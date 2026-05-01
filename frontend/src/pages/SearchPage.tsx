@@ -156,26 +156,50 @@ export const SearchPage = () => {
 
   const trimmedQuery = query.trim();
 
-  useEffect(() => {
-    const requestId = ++requestIdRef.current;
+  const resetSearchState = (
+    nextStatus: "idle" | "error",
+    nextMessage: string,
+  ) => {
+    setResults([]);
+    setSelectedItem(null);
+    setHasNextPage(false);
+    setPage(1);
+    setStatus(nextStatus);
+    setMessage(nextMessage);
+  };
+
+  const handleQueryChange = (value: string) => {
+    const nextTrimmedQuery = value.trim();
+
+    setQuery(value);
+
+    if (nextTrimmedQuery.length === 0) {
+      resetSearchState("idle", initialCopy);
+      return;
+    }
+
+    if (nextTrimmedQuery.length < 2) {
+      resetSearchState("error", shortQueryCopy);
+    }
+  };
+
+  const handleTypeChange = (nextType: SearchType) => {
+    setType(nextType);
 
     if (trimmedQuery.length === 0) {
-      setResults([]);
-      setSelectedItem(null);
-      setHasNextPage(false);
-      setPage(1);
-      setStatus("idle");
-      setMessage(initialCopy);
+      resetSearchState("idle", initialCopy);
       return;
     }
 
     if (trimmedQuery.length < 2) {
-      setResults([]);
-      setSelectedItem(null);
-      setHasNextPage(false);
-      setPage(1);
-      setStatus("error");
-      setMessage(shortQueryCopy);
+      resetSearchState("error", shortQueryCopy);
+    }
+  };
+
+  useEffect(() => {
+    const requestId = ++requestIdRef.current;
+
+    if (trimmedQuery.length === 0 || trimmedQuery.length < 2) {
       return;
     }
 
@@ -647,7 +671,7 @@ export const SearchPage = () => {
             className="w-full rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             id="catalog-search"
             name="catalog_search"
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => handleQueryChange(event.target.value)}
             placeholder="Search by song, album, artist, or show title..."
             spellCheck={false}
             type="search"
@@ -678,7 +702,7 @@ export const SearchPage = () => {
                   : "border-foreground/14 bg-white/4 text-foreground/84"
               }`}
               key={filter.value}
-              onClick={() => setType(filter.value)}
+              onClick={() => handleTypeChange(filter.value)}
               type="button"
             >
               {filter.label}

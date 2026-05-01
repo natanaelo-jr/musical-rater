@@ -35,8 +35,10 @@ export const PeoplePage = () => {
   );
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const trimmedQuery = query.trim();
+  const handleQueryChange = (value: string) => {
+    const trimmedQuery = value.trim();
+
+    setQuery(value);
 
     if (!trimmedQuery) {
       setPeople([]);
@@ -54,6 +56,14 @@ export const PeoplePage = () => {
 
     setStatus("loading");
     setMessage("Looking for listeners...");
+  };
+
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+
+    if (!trimmedQuery || trimmedQuery.length < 2) {
+      return;
+    }
 
     const timeoutId = window.setTimeout(() => {
       void apiGet<{ items: UserSummary[] }>(
@@ -143,7 +153,7 @@ export const PeoplePage = () => {
           <input
             className="w-full rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             id="people-search"
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => handleQueryChange(event.target.value)}
             placeholder="Search by name, username, or email"
             type="search"
             value={query}
