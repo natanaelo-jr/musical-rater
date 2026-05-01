@@ -8,6 +8,7 @@ import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PeoplePage } from "./pages/PeoplePage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { SearchPage } from "./pages/SearchPage";
 
@@ -23,6 +24,7 @@ const App = () => (
         <Route element={<AuthenticatedShell />} path="/app">
           <Route element={<DashboardPage />} index />
           <Route element={<PeoplePage />} path="people" />
+          <Route element={<PublicProfilePage />} path="people/:userId" />
           <Route element={<SearchPage />} path="search" />
           <Route element={<ProfilePage />} path="profile" />
         </Route>

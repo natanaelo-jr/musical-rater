@@ -17,6 +17,7 @@ type CatalogItem = {
   durationSeconds?: number;
   imported: boolean;
   myRating?: number;
+  myReview?: string;
   metadata?: Record<string, unknown>;
 };
 
@@ -24,6 +25,7 @@ type Rating = {
   id: number;
   musicId: number;
   score: number;
+  review: string;
 };
 
 type SearchResponse = {
@@ -96,6 +98,8 @@ export const SearchPage = () => {
   const [importingId, setImportingId] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [savingRating, setSavingRating] = useState(false);
+  const [draftScore, setDraftScore] = useState<number | null>(null);
+  const [draftReview, setDraftReview] = useState("");
   const requestIdRef = useRef(0);
 
   const trimmedQuery = query.trim();
@@ -200,18 +204,29 @@ export const SearchPage = () => {
       `/catalog/ratings/${selectedItem.id}`,
     )
       .then((payload) => {
+        const nextRating = payload.rating;
         setResults((current) =>
           current.map((entry) =>
             entry.id === selectedItem.id
-              ? { ...entry, myRating: payload.rating?.score }
+              ? {
+                  ...entry,
+                  myRating: nextRating?.score,
+                  myReview: nextRating?.review ?? "",
+                }
               : entry,
           ),
         );
         setSelectedItem((current) =>
           current && current.id === selectedItem.id
-            ? { ...current, myRating: payload.rating?.score }
+            ? {
+                ...current,
+                myRating: nextRating?.score,
+                myReview: nextRating?.review ?? "",
+              }
             : current,
         );
+        setDraftScore(nextRating?.score ?? null);
+        setDraftReview(nextRating?.review ?? "");
       })
       .catch((error: unknown) => {
         setMessage(readError(error));
@@ -319,21 +334,37 @@ export const SearchPage = () => {
     }
   };
 
-  const updateItemRating = (itemId: number, score?: number) => {
+  useEffect(() => {
+    setDraftScore(selectedItem?.myRating ?? null);
+    setDraftReview(selectedItem?.myReview ?? "");
+  }, [
+    selectedItem?.externalId,
+    selectedItem?.myRating,
+    selectedItem?.myReview,
+  ]);
+
+  const updateItemRating = (itemId: number, score?: number, review = "") => {
     setResults((current) =>
       current.map((entry) =>
-        entry.id === itemId ? { ...entry, myRating: score } : entry,
+        entry.id === itemId
+          ? { ...entry, myRating: score, myReview: review }
+          : entry,
       ),
     );
     setSelectedItem((current) =>
       current && current.id === itemId
-        ? { ...current, myRating: score }
+        ? { ...current, myRating: score, myReview: review }
         : current,
     );
   };
 
-  const rateItem = async (item: CatalogItem, score: number) => {
+  const saveRating = async (item: CatalogItem) => {
     if (!item.id) {
+      return;
+    }
+
+    if (!draftScore) {
+      setMessage("Choose a score before saving your review.");
       return;
     }
 
@@ -344,11 +375,16 @@ export const SearchPage = () => {
         `/catalog/ratings/${item.id}`,
         {
           method: "POST",
-          body: JSON.stringify({ score }),
+          body: JSON.stringify({
+            score: draftScore,
+            review: draftReview,
+          }),
         },
       );
-      updateItemRating(item.id, payload.rating.score);
-      setMessage(`Saved ${payload.rating.score}/5 for "${item.title}".`);
+      updateItemRating(item.id, payload.rating.score, payload.rating.review);
+      setDraftScore(payload.rating.score);
+      setDraftReview(payload.rating.review);
+      setMessage(`Saved your review for "${item.title}".`);
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -368,6 +404,8 @@ export const SearchPage = () => {
         method: "DELETE",
       });
       updateItemRating(item.id);
+      setDraftScore(null);
+      setDraftReview("");
       setMessage(`Cleared your rating for "${item.title}".`);
     } catch (error) {
       setMessage(readError(error));
@@ -623,7 +661,7 @@ export const SearchPage = () => {
                 <p className="m-0 leading-[1.6] text-foreground/82">
                   {selectedItem.myRating
                     ? `Your rating: ${selectedItem.myRating}/5`
-                    : "Add a quick rating."}
+                    : "Add a rating and review."}
                 </p>
                 <div
                   className="flex flex-wrap gap-3"
@@ -631,20 +669,45 @@ export const SearchPage = () => {
                 >
                   {[1, 2, 3, 4, 5].map((score) => (
                     <button
-                      aria-pressed={selectedItem.myRating === score}
+                      aria-pressed={draftScore === score}
                       className={`min-h-[44px] min-w-[44px] rounded-full border px-4 py-2 font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-                        selectedItem.myRating === score
+                        draftScore === score
                           ? "border-secondary bg-linear-to-br from-primary/20 to-secondary/28 text-foreground"
                           : "border-foreground/12 bg-foreground/5 text-foreground"
                       }`}
                       disabled={savingRating}
                       key={score}
-                      onClick={() => void rateItem(selectedItem, score)}
+                      onClick={() => setDraftScore(score)}
                       type="button"
                     >
                       {score}
                     </button>
                   ))}
+                </div>
+                <label className="grid gap-2" htmlFor="rating-review">
+                  <span className="text-sm text-primary">Review</span>
+                  <textarea
+                    className="min-h-[132px] w-full resize-y rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 leading-[1.6] text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                    disabled={savingRating}
+                    id="rating-review"
+                    maxLength={2000}
+                    onChange={(event) => setDraftReview(event.target.value)}
+                    placeholder="What stood out? Mention vocals, arrangement, lyrics, production, or why it belongs in your rotation."
+                    value={draftReview}
+                  />
+                  <span className="text-sm text-foreground/62">
+                    {draftReview.length}/2000 characters
+                  </span>
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className={primaryButtonClass}
+                    disabled={savingRating || !draftScore}
+                    onClick={() => void saveRating(selectedItem)}
+                    type="button"
+                  >
+                    {savingRating ? "Saving..." : "Save Review"}
+                  </button>
                   {selectedItem.myRating ? (
                     <button
                       className={ghostButtonClass}

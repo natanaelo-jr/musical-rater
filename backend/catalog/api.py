@@ -25,6 +25,7 @@ class CatalogImportInput(Schema):
 
 class RatingInput(Schema):
     score: int
+    review: str = ""
 
 
 def serialize_rating(rating):
@@ -32,6 +33,8 @@ def serialize_rating(rating):
         "id": rating.id,
         "musicId": rating.music_id,
         "score": rating.score,
+        "review": rating.review,
+        "updatedAt": rating.updated_at.isoformat(),
     }
 
 
@@ -105,13 +108,17 @@ def save_rating_view(request, music_id: int, payload: RatingInput):
     if payload.score < 1 or payload.score > 5:
         return validation_error({"score": "Score must be between 1 and 5."})
 
+    review = payload.review.strip()
+    if len(review) > 2000:
+        return validation_error({"review": "Review must be 2000 characters or less."})
+
     if not Music.objects.filter(id=music_id).exists():
         return JsonResponse({"detail": "Track not found."}, status=404)
 
     rating, _ = Rating.objects.update_or_create(
         user=request.user,
         music_id=music_id,
-        defaults={"score": payload.score},
+        defaults={"score": payload.score, "review": review},
     )
     return {"rating": serialize_rating(rating)}
 

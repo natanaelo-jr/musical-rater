@@ -8,6 +8,7 @@ type RatingSummary = {
   id: number;
   musicId: number;
   score: number;
+  review: string;
   title: string;
   artistName: string;
   albumTitle?: string;
@@ -120,6 +121,11 @@ export const DashboardPage = () => {
                     {rating.artistName}
                     {rating.albumTitle ? ` · ${rating.albumTitle}` : ""}
                   </span>
+                  {rating.review ? (
+                    <p className="m-0 line-clamp-2 leading-[1.5] text-foreground/72">
+                      {rating.review}
+                    </p>
+                  ) : null}
                 </div>
                 <span className="w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold text-foreground">
                   {rating.score}/5

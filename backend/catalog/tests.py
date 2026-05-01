@@ -138,6 +138,38 @@ class CatalogApiTests(TestCase):
         self.assertEqual(second_response.json()["rating"]["score"], 5)
         self.assertEqual(Rating.objects.count(), 1)
 
+    def test_save_rating_persists_review_text(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 4, "review": "Great opener with sharp vocals."},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["rating"]["review"], "Great opener with sharp vocals."
+        )
+        self.assertEqual(Rating.objects.get().review, "Great opener with sharp vocals.")
+
+    def test_save_rating_rejects_long_review(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 4, "review": "x" * 2001},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["errors"]["review"],
+            "Review must be 2000 characters or less.",
+        )
+
     def test_save_rating_rejects_out_of_range_score(self):
         self.client.force_login(self.user)
         music = self._create_music()
@@ -156,17 +188,18 @@ class CatalogApiTests(TestCase):
     def test_get_rating_returns_current_user_rating(self):
         self.client.force_login(self.user)
         music = self._create_music()
-        Rating.objects.create(user=self.user, music=music, score=3)
+        Rating.objects.create(user=self.user, music=music, score=3, review="Punchy.")
 
         response = self.client.get(f"/api/catalog/ratings/{music.id}")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["rating"]["score"], 3)
+        self.assertEqual(response.json()["rating"]["review"], "Punchy.")
 
     def test_list_ratings_returns_recent_user_ratings(self):
         self.client.force_login(self.user)
         music = self._create_music()
-        Rating.objects.create(user=self.user, music=music, score=4)
+        Rating.objects.create(user=self.user, music=music, score=4, review="Memorable.")
 
         response = self.client.get("/api/catalog/ratings")
 
@@ -176,6 +209,7 @@ class CatalogApiTests(TestCase):
             response.json()["items"][0]["artistName"], "Lin-Manuel Miranda"
         )
         self.assertEqual(response.json()["items"][0]["score"], 4)
+        self.assertEqual(response.json()["items"][0]["review"], "Memorable.")
 
     def test_clear_rating_removes_current_user_rating(self):
         self.client.force_login(self.user)

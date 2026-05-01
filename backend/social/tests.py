@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
+from catalog.models import Artist, Music, Rating
 from social.models import Follow
 
 
@@ -95,6 +96,41 @@ class SocialApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["items"][0]["displayName"], "Critic")
+
+    def test_public_profile_returns_stats_ratings_and_follow_state(self):
+        self.client.force_login(self.user)
+        Follow.objects.create(follower=self.user, following=self.other_user)
+        artist = Artist.objects.create(
+            name="Lin-Manuel Miranda",
+            source_provider="musicbrainz",
+            external_id="artist-1",
+        )
+        music = Music.objects.create(
+            title="My Shot",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="recording-1",
+        )
+        Rating.objects.create(
+            user=self.other_user,
+            music=music,
+            score=5,
+            review="A precise, high-energy thesis statement.",
+        )
+
+        response = self.client.get(f"/api/social/users/{self.other_user.id}")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["profile"]["username"], "critic")
+        self.assertEqual(payload["profile"]["isFollowing"], True)
+        self.assertEqual(payload["profile"]["stats"]["ratings"], 1)
+        self.assertEqual(payload["profile"]["stats"]["followers"], 1)
+        self.assertEqual(payload["ratings"][0]["title"], "My Shot")
+        self.assertEqual(
+            payload["ratings"][0]["review"],
+            "A precise, high-energy thesis statement.",
+        )
 
     def test_unfollow_user_removes_relationship(self):
         self.client.force_login(self.user)
