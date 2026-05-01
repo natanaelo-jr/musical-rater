@@ -6,7 +6,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("catalog", "0002_rating"),
+        ("catalog", "0003_rating_review"),
     ]
 
     operations = [
@@ -22,25 +22,12 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("position", models.PositiveIntegerField(blank=True, null=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
-                (
-                    "album",
-                    models.ForeignKey(
-                        blank=True,
-                        null=True,
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="favorited_by",
-                        to="catalog.album",
-                    ),
-                ),
                 (
                     "music",
                     models.ForeignKey(
-                        blank=True,
-                        null=True,
                         on_delete=django.db.models.deletion.CASCADE,
-                        related_name="favorited_by",
+                        related_name="favorites",
                         to="catalog.music",
                     ),
                 ),
@@ -58,22 +45,6 @@ class Migration(migrations.Migration):
             model_name="favorite",
             constraint=models.UniqueConstraint(
                 fields=("user", "music"), name="catalog_favorite_user_music_unique"
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="favorite",
-            constraint=models.UniqueConstraint(
-                fields=("user", "album"), name="catalog_favorite_user_album_unique"
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="favorite",
-            constraint=models.CheckConstraint(
-                condition=(
-                    models.Q(music__isnull=False, album__isnull=True)
-                    | models.Q(music__isnull=True, album__isnull=False)
-                ),
-                name="catalog_favorite_single_target",
             ),
         ),
     ]

@@ -186,7 +186,12 @@ export const PeoplePage = () => {
                 )}
               </div>
               <div className="grid gap-1.5">
-                <strong>{person.displayName}</strong>
+                <Link
+                  className="w-fit font-bold text-foreground no-underline hover:text-primary"
+                  to={`/app/people/${person.id}`}
+                >
+                  {person.displayName}
+                </Link>
                 <span className="text-foreground/72">
                   {person.username ? `@${person.username}` : "No username yet"}
                 </span>

@@ -1,170 +1,133 @@
 import type { FormEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
 import { focusFirstFieldError } from "../components/formUtils";
 import { Field, TextAreaField } from "../components/forms";
-import { ApiError, apiGet, apiRequest } from "../lib/api";
+import { apiGet, apiRequest } from "../lib/api";
 
-const cardClass =
-  "mx-auto w-full max-w-[640px] rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]";
-const primaryButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
-const ghostButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
-
-type CatalogItem = {
-  id?: number;
-  type: "track" | "album";
-  sourceProvider: string;
-  externalId: string;
+type RatingSummary = {
+  id: number;
+  musicId: number;
+  score: number;
+  review: string;
   title: string;
   artistName: string;
   albumTitle?: string;
   artworkUrl?: string;
-  releaseDate?: string;
-  imported: boolean;
 };
 
-type Favorite = {
+type FavoriteSummary = {
   id: number;
-  position: number | null;
-  item: CatalogItem;
+  musicId: number;
+  title: string;
+  artistName: string;
+  albumTitle?: string;
+  artworkUrl?: string;
 };
 
-type SearchResponse = {
-  items: CatalogItem[];
+type SavedAlbumSummary = {
+  id: number;
+  albumId: number;
+  title: string;
+  artistName: string;
+  artworkUrl?: string;
+  releaseDate?: string;
 };
 
-const readError = (error: unknown) => {
-  if (error instanceof ApiError) {
-    return error.message;
-  }
+const cardClass =
+  "rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]";
+const primaryButtonClass =
+  "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+const ghostButtonClass =
+  "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+const PROFILE_SECTION_STEP = 3;
 
-  return "Unexpected error. Please try again.";
-};
+const initials = (value: string) =>
+  value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "MR";
 
-const itemKey = (item: CatalogItem) =>
-  `${item.type}:${item.sourceProvider}:${item.externalId}`;
+const artwork = (
+  item: { title: string; artworkUrl?: string },
+  size = "h-14 w-14",
+) => (
+  <div
+    className={`grid ${size} shrink-0 place-items-center overflow-hidden rounded-[16px] bg-linear-to-br from-primary/24 to-secondary/24 text-xl font-bold`}
+  >
+    {item.artworkUrl ? (
+      <img
+        alt={`${item.title} cover`}
+        className="h-full w-full object-cover"
+        loading="lazy"
+        src={item.artworkUrl}
+      />
+    ) : (
+      <span>♪</span>
+    )}
+  </div>
+);
 
 export const ProfilePage = () => {
   const auth = useAuth();
   const user = auth.user;
-  const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [bio, setBio] = useState("");
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const [username, setUsername] = useState(user?.username ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? "");
+  const [bio, setBio] = useState(user?.bio ?? "");
+  const [ratings, setRatings] = useState<RatingSummary[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteSummary[]>([]);
+  const [savedAlbums, setSavedAlbums] = useState<SavedAlbumSummary[]>([]);
+  const [visibleRatings, setVisibleRatings] = useState(PROFILE_SECTION_STEP);
+  const [visibleSavedAlbums, setVisibleSavedAlbums] =
+    useState(PROFILE_SECTION_STEP);
+  const [removingAlbumId, setRemovingAlbumId] = useState<number | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
-  const [favoritesMessage, setFavoritesMessage] = useState(
-    "Search the catalog and pin the albums or tracks you want visible on your profile.",
-  );
-  const [favoritesLoading, setFavoritesLoading] = useState(true);
-  const [favoritesQuery, setFavoritesQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<CatalogItem[]>([]);
-  const [searchStatus, setSearchStatus] = useState<
-    "idle" | "loading" | "ready" | "error"
-  >("idle");
-  const [favoriteBusyKey, setFavoriteBusyKey] = useState<string | null>(null);
-  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    window.setTimeout(() => {
-      setDisplayName(user?.displayName ?? "");
-      setUsername(user?.username ?? "");
-      setAvatarUrl(user?.avatarUrl ?? "");
-      setBio(user?.bio ?? "");
-    }, 0);
+    setDisplayName(user?.displayName ?? "");
+    setUsername(user?.username ?? "");
+    setAvatarUrl(user?.avatarUrl ?? "");
+    setBio(user?.bio ?? "");
   }, [user]);
-
-  const handleFavoritesQueryChange = (value: string) => {
-    const trimmedQuery = value.trim();
-
-    setFavoritesQuery(value);
-
-    if (!trimmedQuery) {
-      setSearchResults([]);
-      setSearchStatus("idle");
-      return;
-    }
-
-    if (trimmedQuery.length < 2) {
-      setSearchResults([]);
-      setSearchStatus("error");
-    }
-  };
 
   useEffect(() => {
     if (!user) {
       return;
     }
 
-    const loadFavorites = async () => {
-      setFavoritesLoading(true);
+    void apiGet<{ items: RatingSummary[] }>("/catalog/ratings")
+      .then((payload) => {
+        setRatings(payload.items);
+        setVisibleRatings(PROFILE_SECTION_STEP);
+      })
+      .catch(() => setRatings([]));
 
-      try {
-        const payload = await apiGet<{ items: Favorite[] }>(
-          "/catalog/favorites",
-        );
-        setFavorites(payload.items);
-      } catch (error: unknown) {
-        setFavoritesMessage(readError(error));
-      } finally {
-        setFavoritesLoading(false);
-      }
-    };
+    void apiGet<{ items: FavoriteSummary[] }>("/catalog/favorites")
+      .then((payload) => setFavorites(payload.items))
+      .catch(() => setFavorites([]));
 
-    void loadFavorites();
+    void apiGet<{ items: SavedAlbumSummary[] }>("/catalog/albums/saved")
+      .then((payload) => {
+        setSavedAlbums(payload.items);
+        setVisibleSavedAlbums(PROFILE_SECTION_STEP);
+      })
+      .catch(() => setSavedAlbums([]));
   }, [user]);
 
-  useEffect(() => {
-    const trimmedQuery = favoritesQuery.trim();
-    const requestId = ++requestIdRef.current;
-
-    if (!trimmedQuery || trimmedQuery.length < 2) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setSearchStatus("loading");
-
-      void apiGet<SearchResponse>(
-        `/catalog/search?q=${encodeURIComponent(trimmedQuery)}&type=all&page=1`,
-      )
-        .then((payload) => {
-          if (requestId !== requestIdRef.current) {
-            return;
-          }
-
-          setSearchResults(payload.items);
-          setSearchStatus("ready");
-        })
-        .catch((error: unknown) => {
-          if (requestId !== requestIdRef.current) {
-            return;
-          }
-
-          setSearchResults([]);
-          setSearchStatus("error");
-          setFavoritesMessage(readError(error));
-        });
-    }, 300);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [favoritesQuery]);
+  const visibleRatingsItems = ratings.slice(0, visibleRatings);
+  const visibleSavedAlbumItems = savedAlbums.slice(0, visibleSavedAlbums);
 
   if (!user) {
     return null;
   }
-
-  const favoriteKeys = new Set(
-    favorites.map((favorite) => itemKey(favorite.item)),
-  );
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -174,9 +137,8 @@ export const ProfilePage = () => {
 
     try {
       await auth.updateProfile({ displayName, username, avatarUrl, bio });
-      setSuccess(
-        "Profile updated. Your workspace now reflects the new details.",
-      );
+      setSuccess("Profile updated.");
+      setShowSettings(false);
     } catch (error) {
       const nextErrors = toFieldErrors(error);
       setErrors(nextErrors);
@@ -186,277 +148,318 @@ export const ProfilePage = () => {
     }
   };
 
-  const addFavorite = async (item: CatalogItem) => {
-    const key = itemKey(item);
-    setFavoriteBusyKey(key);
+  const removeSavedAlbum = async (album: SavedAlbumSummary) => {
+    setRemovingAlbumId(album.albumId);
 
     try {
-      const payload = await apiRequest<{ favorite: Favorite }>(
-        "/catalog/favorites",
+      await apiRequest<{ savedAlbum: null }>(
+        `/catalog/albums/saved/${album.albumId}`,
         {
-          method: "POST",
-          body: JSON.stringify({
-            source_provider: item.sourceProvider,
-            external_id: item.externalId,
-            type: item.type,
-          }),
+          method: "DELETE",
         },
       );
-
-      setFavorites((current) => {
-        const withoutDuplicate = current.filter(
-          (favorite) =>
-            itemKey(favorite.item) !== itemKey(payload.favorite.item),
+      setSavedAlbums((current) => {
+        const updated = current.filter(
+          (item) => item.albumId !== album.albumId,
         );
-        return [...withoutDuplicate, payload.favorite].sort(
-          (left, right) => (left.position ?? 0) - (right.position ?? 0),
-        );
+        setVisibleSavedAlbums((count) => Math.min(count, updated.length || 3));
+        return updated;
       });
-      setFavoritesMessage(`"${item.title}" is now featured on your profile.`);
-    } catch (error) {
-      setFavoritesMessage(readError(error));
     } finally {
-      setFavoriteBusyKey(null);
-    }
-  };
-
-  const removeFavorite = async (favorite: Favorite) => {
-    setFavoriteBusyKey(`favorite:${favorite.id}`);
-
-    try {
-      await apiRequest(`/catalog/favorites/${favorite.id}`, {
-        method: "DELETE",
-      });
-      setFavorites((current) =>
-        current.filter((entry) => entry.id !== favorite.id),
-      );
-      setFavoritesMessage(
-        `Removed "${favorite.item.title}" from your profile.`,
-      );
-    } catch (error) {
-      setFavoritesMessage(readError(error));
-    } finally {
-      setFavoriteBusyKey(null);
+      setRemovingAlbumId(null);
     }
   };
 
   return (
-    <section className="mx-auto grid w-full max-w-[1120px] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <article className={cardClass}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
+    <section className="mx-auto grid max-w-[1120px] gap-6">
+      <article className={`${cardClass} grid gap-7`}>
+        <div className="grid gap-6 lg:grid-cols-[128px_minmax(0,1fr)_auto] lg:items-start">
+          <div className="grid h-32 w-32 place-items-center overflow-hidden rounded-[26px] bg-linear-to-br from-primary/28 to-secondary/28 text-4xl font-bold">
+            {user.avatarUrl ? (
+              <img
+                alt={`${user.displayName} avatar`}
+                className="h-full w-full object-cover"
+                src={user.avatarUrl}
+              />
+            ) : (
+              <span>{initials(user.displayName || user.email)}</span>
+            )}
+          </div>
+
+          <div className="min-w-0">
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Edit profile
+              My profile
             </p>
-            <h1 className="m-0 text-[clamp(2rem,3vw,3rem)] leading-[0.98]">
-              Set the details that identify you in the app.
+            <h1 className="m-0 overflow-hidden text-ellipsis text-[clamp(2.2rem,5vw,5rem)] leading-[0.96]">
+              {user.displayName || "Your profile"}
             </h1>
-            <p className="mt-4 leading-[1.6] text-foreground/82">
-              Use a clear name, a recognizable handle, and a short bio so your
-              account feels finished.
+            <p className="mt-3 text-[1.05rem] text-foreground/72">
+              {user.username ? `@${user.username}` : user.email}
+            </p>
+            <p className="mt-5 max-w-[48rem] text-[1.05rem] leading-[1.7] text-foreground/84">
+              {user.bio || "Add a short bio so people understand your taste."}
             </p>
           </div>
-        </div>
-        <form className="mt-7 grid gap-[18px]" onSubmit={submit}>
-          <Field
-            autoComplete="name"
-            error={errors.display_name}
-            helperText="Shown in the app and on future profile surfaces."
-            label="Display name"
-            name="display_name"
-            onChange={setDisplayName}
-            value={displayName}
-          />
-          <Field
-            autoComplete="username"
-            error={errors.username}
-            helperText="Use the handle people will recognize when they browse your profile."
-            label="Username"
-            name="username"
-            onChange={setUsername}
-            placeholder="stage-door-fan..."
-            spellCheck={false}
-            value={username}
-          />
-          <Field
-            autoComplete="url"
-            error={errors.avatar_url}
-            helperText="Paste a direct link to an image file."
-            label="Avatar URL"
-            name="avatar_url"
-            onChange={setAvatarUrl}
-            placeholder="https://example.com/avatar.jpg..."
-            spellCheck={false}
-            type="url"
-            value={avatarUrl}
-          />
-          <TextAreaField
-            autoComplete="off"
-            error={errors.bio}
-            helperText="Share what you like to rate, collect, or revisit."
-            label="Bio"
-            name="bio"
-            onChange={setBio}
-            placeholder="Share your favorite cast recordings..."
-            value={bio}
-          />
-          {errors.form ? (
-            <p aria-live="polite" className="text-danger">
-              {errors.form}
-            </p>
-          ) : null}
-          {success ? (
-            <p aria-live="polite" className="text-success">
-              {success}
-            </p>
-          ) : null}
+
           <button
-            className={primaryButtonClass}
-            disabled={submitting}
-            type="submit"
+            className={showSettings ? ghostButtonClass : primaryButtonClass}
+            onClick={() => setShowSettings((current) => !current)}
+            type="button"
           >
-            {submitting ? "Saving..." : "Save Profile"}
+            {showSettings ? "Close Settings" : "Profile Settings"}
           </button>
-        </form>
+        </div>
+
+        <dl className="grid gap-3 sm:grid-cols-3">
+          {[
+            ["Reviews", ratings.length],
+            ["Albums", savedAlbums.length],
+            ["Favorites", favorites.length],
+          ].map(([label, value]) => (
+            <div className="rounded-[20px] bg-white/4 p-5" key={label}>
+              <dt className="mb-2 text-sm text-primary">{label}</dt>
+              <dd className="m-0 text-2xl font-bold">{value}</dd>
+            </div>
+          ))}
+        </dl>
       </article>
 
-      <aside className={cardClass}>
-        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-          Favorites
-        </p>
-        <h2 className="m-0 text-[clamp(1.7rem,2.5vw,2.5rem)] leading-[1.02]">
-          Feature the music that should represent your taste.
-        </h2>
-        <p className="mt-4 leading-[1.6] text-foreground/82">
-          {favoritesMessage}
-        </p>
+      {showSettings ? (
+        <section className={cardClass}>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+                Settings
+              </p>
+              <h2 className="m-0 text-[clamp(1.7rem,3vw,3rem)] leading-[1]">
+                Edit the details people see on your profile.
+              </h2>
+            </div>
+          </div>
+          <form className="mt-7 grid gap-[18px]" onSubmit={submit}>
+            <Field
+              autoComplete="name"
+              error={errors.display_name}
+              helperText="Shown in the app and on profile surfaces."
+              label="Display name"
+              name="display_name"
+              onChange={setDisplayName}
+              value={displayName}
+            />
+            <Field
+              autoComplete="username"
+              error={errors.username}
+              helperText="Use the handle people will recognize."
+              label="Username"
+              name="username"
+              onChange={setUsername}
+              placeholder="stage-door-fan..."
+              spellCheck={false}
+              value={username}
+            />
+            <Field
+              autoComplete="url"
+              error={errors.avatar_url}
+              helperText="Paste a direct link to an image file."
+              label="Avatar URL"
+              name="avatar_url"
+              onChange={setAvatarUrl}
+              placeholder="https://example.com/avatar.jpg..."
+              spellCheck={false}
+              type="url"
+              value={avatarUrl}
+            />
+            <TextAreaField
+              autoComplete="off"
+              error={errors.bio}
+              helperText="Share what you like to rate, collect, or revisit."
+              label="Bio"
+              name="bio"
+              onChange={setBio}
+              placeholder="Share your favorite cast recordings..."
+              value={bio}
+            />
+            {errors.form ? (
+              <p aria-live="polite" className="text-danger">
+                {errors.form}
+              </p>
+            ) : null}
+            {success ? (
+              <p aria-live="polite" className="text-success">
+                {success}
+              </p>
+            ) : null}
+            <button
+              className={primaryButtonClass}
+              disabled={submitting}
+              type="submit"
+            >
+              {submitting ? "Saving..." : "Save Profile"}
+            </button>
+          </form>
+        </section>
+      ) : null}
 
-        <div className="mt-6 grid gap-2.5">
-          <label className="text-sm text-primary" htmlFor="favorite-search">
-            Search tracks and albums
-          </label>
-          <input
-            className="w-full rounded-2xl border border-foreground/14 bg-white/4 px-4 py-[14px] text-foreground/82 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-panel"
-            id="favorite-search"
-            onChange={(event) => handleFavoritesQueryChange(event.target.value)}
-            placeholder="Search the catalog to add favorites..."
-            type="search"
-            value={favoritesQuery}
-          />
-          <small className="leading-6 text-foreground/68">
-            Search by title, artist, album, or show.
-          </small>
+      <section className={`${cardClass} grid gap-5`}>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+              Saved albums
+            </p>
+            <h2 className="m-0 text-[clamp(1.6rem,3vw,3rem)] leading-[1.02]">
+              Albums on your profile
+            </h2>
+          </div>
+          <span className="text-sm text-foreground/66">
+            Manage this section from here.
+          </span>
         </div>
 
-        <div className="mt-6 grid gap-3">
-          {searchStatus === "loading" ? (
-            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-5 text-center text-foreground/72">
-              Searching the catalog...
-            </div>
-          ) : null}
-
-          {favoritesQuery.trim().length === 1 ? (
-            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-5 text-center text-foreground/72">
-              Use at least 2 characters to search.
-            </div>
-          ) : null}
-
-          {searchStatus === "ready" && searchResults.length === 0 ? (
-            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-5 text-center text-foreground/72">
-              No matches found for this search.
-            </div>
-          ) : null}
-
-          {searchResults.map((item) => {
-            const key = itemKey(item);
-            const isSaved = favoriteKeys.has(key);
-
-            return (
-              <article
-                className="grid gap-3 rounded-[22px] border border-foreground/12 bg-white/4 p-4"
-                key={key}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="grid gap-1">
-                    <strong>{item.title}</strong>
-                    <span className="text-foreground/78">
-                      {item.artistName}
-                    </span>
-                    <span className="text-sm text-foreground/62">
-                      {item.type === "track" && item.albumTitle
-                        ? `${item.type} · ${item.albumTitle}`
-                        : item.type}
-                    </span>
-                  </div>
-                  <button
-                    className={isSaved ? ghostButtonClass : primaryButtonClass}
-                    disabled={isSaved || favoriteBusyKey === key}
-                    onClick={() => void addFavorite(item)}
-                    type="button"
-                  >
-                    {favoriteBusyKey === key
-                      ? "Saving..."
-                      : isSaved
-                        ? "Featured"
-                        : "Feature"}
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-
-        <div className="mt-8">
-          <h3 className="m-0 text-[1.15rem] text-foreground">
-            Visible on your profile
-          </h3>
-          <div className="mt-4 grid gap-3">
-            {favoritesLoading ? (
-              <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-5 text-center text-foreground/72">
-                Loading favorites...
-              </div>
-            ) : null}
-
-            {!favoritesLoading && favorites.length === 0 ? (
-              <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-5 text-center text-foreground/72">
-                No favorites selected yet.
-              </div>
-            ) : null}
-
-            {favorites.map((favorite) => (
-              <article
-                className="grid gap-3 rounded-[22px] border border-foreground/12 bg-white/4 p-4"
-                key={favorite.id}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="grid gap-1">
-                    <strong>{favorite.item.title}</strong>
-                    <span className="text-foreground/78">
-                      {favorite.item.artistName}
-                    </span>
-                    <span className="text-sm text-foreground/62">
-                      {favorite.item.type === "track" &&
-                      favorite.item.albumTitle
-                        ? `${favorite.item.type} · ${favorite.item.albumTitle}`
-                        : favorite.item.type}
-                    </span>
+        {savedAlbums.length ? (
+          <>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleSavedAlbumItems.map((album) => (
+                <article
+                  className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-4"
+                  key={album.id}
+                >
+                  {artwork(album, "aspect-square w-full")}
+                  <div className="min-w-0">
+                    <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
+                      {album.title}
+                    </h3>
+                    <p className="mt-1 overflow-hidden text-ellipsis text-foreground/76">
+                      {album.artistName}
+                    </p>
+                    {album.releaseDate ? (
+                      <p className="mt-2 text-sm text-foreground/62">
+                        {album.releaseDate}
+                      </p>
+                    ) : null}
                   </div>
                   <button
                     className={ghostButtonClass}
-                    disabled={favoriteBusyKey === `favorite:${favorite.id}`}
-                    onClick={() => void removeFavorite(favorite)}
+                    disabled={removingAlbumId === album.albumId}
+                    onClick={() => void removeSavedAlbum(album)}
                     type="button"
                   >
-                    {favoriteBusyKey === `favorite:${favorite.id}`
+                    {removingAlbumId === album.albumId
                       ? "Removing..."
-                      : "Remove"}
+                      : "Remove from Profile"}
                   </button>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
+            </div>
+            {savedAlbums.length > visibleSavedAlbumItems.length ? (
+              <button
+                className={ghostButtonClass}
+                onClick={() =>
+                  setVisibleSavedAlbums((count) => count + PROFILE_SECTION_STEP)
+                }
+                type="button"
+              >
+                Load More Albums
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
+            Add imported albums from search and they will appear here.
           </div>
-        </div>
-      </aside>
+        )}
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <section className={`${cardClass} grid gap-5`}>
+          <div>
+            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+              Latest reviews
+            </p>
+            <h2 className="m-0 text-[clamp(1.6rem,3vw,3rem)] leading-[1.02]">
+              Recent thoughts
+            </h2>
+          </div>
+          {ratings.length ? (
+            <>
+              <div className="grid gap-4">
+                {visibleRatingsItems.map((rating) => (
+                  <article
+                    className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-5 sm:grid-cols-[64px_minmax(0,1fr)_auto]"
+                    key={rating.id}
+                  >
+                    {artwork(rating, "h-16 w-16")}
+                    <div className="min-w-0">
+                      <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
+                        {rating.title}
+                      </h3>
+                      <p className="mt-1 text-foreground/76">
+                        {rating.artistName}
+                        {rating.albumTitle ? ` · ${rating.albumTitle}` : ""}
+                      </p>
+                      <p className="mt-3 line-clamp-3 leading-[1.6] text-foreground/82">
+                        {rating.review || "No written review yet."}
+                      </p>
+                    </div>
+                    <span className="h-fit w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold">
+                      {rating.score}/5
+                    </span>
+                  </article>
+                ))}
+              </div>
+              {ratings.length > visibleRatingsItems.length ? (
+                <button
+                  className={ghostButtonClass}
+                  onClick={() =>
+                    setVisibleRatings((count) => count + PROFILE_SECTION_STEP)
+                  }
+                  type="button"
+                >
+                  Load More Reviews
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
+              Your latest reviews will appear here after you rate tracks.
+            </div>
+          )}
+        </section>
+
+        <aside className={`${cardClass} grid content-start gap-5`}>
+          <div>
+            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+              Favorites
+            </p>
+            <h2 className="m-0 text-[clamp(1.6rem,2.4vw,2.4rem)] leading-[1.05]">
+              Profile pins
+            </h2>
+          </div>
+          {favorites.length ? (
+            <div className="grid gap-3">
+              {favorites.map((favorite) => (
+                <article
+                  className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-3 rounded-[18px] bg-white/4 p-3"
+                  key={favorite.id}
+                >
+                  {artwork(favorite)}
+                  <div className="min-w-0">
+                    <h3 className="m-0 overflow-hidden text-ellipsis text-base">
+                      {favorite.title}
+                    </h3>
+                    <p className="m-0 overflow-hidden text-ellipsis text-sm text-foreground/72">
+                      {favorite.artistName}
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
+              Favorite imported tracks from search to pin them here.
+            </div>
+          )}
+        </aside>
+      </div>
     </section>
   );
 };

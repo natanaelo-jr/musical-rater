@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from catalog.models import Album, Artist, Favorite, Music, Rating
+from catalog.models import Album, Artist, Favorite, Music, Rating, SavedAlbum
 
 
 class CatalogApiTests(TestCase):
@@ -138,6 +138,38 @@ class CatalogApiTests(TestCase):
         self.assertEqual(second_response.json()["rating"]["score"], 5)
         self.assertEqual(Rating.objects.count(), 1)
 
+    def test_save_rating_persists_review_text(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 4, "review": "Great opener with sharp vocals."},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["rating"]["review"], "Great opener with sharp vocals."
+        )
+        self.assertEqual(Rating.objects.get().review, "Great opener with sharp vocals.")
+
+    def test_save_rating_rejects_long_review(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 4, "review": "x" * 2001},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["errors"]["review"],
+            "Review must be 2000 characters or less.",
+        )
+
     def test_save_rating_rejects_out_of_range_score(self):
         self.client.force_login(self.user)
         music = self._create_music()
@@ -156,17 +188,18 @@ class CatalogApiTests(TestCase):
     def test_get_rating_returns_current_user_rating(self):
         self.client.force_login(self.user)
         music = self._create_music()
-        Rating.objects.create(user=self.user, music=music, score=3)
+        Rating.objects.create(user=self.user, music=music, score=3, review="Punchy.")
 
         response = self.client.get(f"/api/catalog/ratings/{music.id}")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["rating"]["score"], 3)
+        self.assertEqual(response.json()["rating"]["review"], "Punchy.")
 
     def test_list_ratings_returns_recent_user_ratings(self):
         self.client.force_login(self.user)
         music = self._create_music()
-        Rating.objects.create(user=self.user, music=music, score=4)
+        Rating.objects.create(user=self.user, music=music, score=4, review="Memorable.")
 
         response = self.client.get("/api/catalog/ratings")
 
@@ -176,6 +209,7 @@ class CatalogApiTests(TestCase):
             response.json()["items"][0]["artistName"], "Lin-Manuel Miranda"
         )
         self.assertEqual(response.json()["items"][0]["score"], 4)
+        self.assertEqual(response.json()["items"][0]["review"], "Memorable.")
 
     def test_clear_rating_removes_current_user_rating(self):
         self.client.force_login(self.user)
@@ -188,84 +222,133 @@ class CatalogApiTests(TestCase):
         self.assertIsNone(response.json()["rating"])
         self.assertEqual(Rating.objects.count(), 0)
 
-    def test_list_favorites_requires_authentication(self):
-        response = self.client.get("/api/catalog/favorites")
-
-        self.assertEqual(response.status_code, 401)
-
-    def test_save_track_favorite_imports_item_and_returns_payload(self):
-        self.client.force_login(self.user)
-
-        with patch("catalog.api.ensure_catalog_item") as ensure_catalog_item_mock:
-            music = self._create_music()
-            ensure_catalog_item_mock.return_value = music
-
-            response = self.client.post(
-                "/api/catalog/favorites",
-                data={
-                    "source_provider": "musicbrainz",
-                    "external_id": "recording-1",
-                    "type": "track",
-                },
-                content_type="application/json",
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["favorite"]["item"]["title"], "My Shot")
-        self.assertEqual(Favorite.objects.count(), 1)
-
-    def test_save_album_favorite_is_idempotent(self):
-        self.client.force_login(self.user)
-        album = self._create_album()
-
-        first_response = self.client.post(
-            "/api/catalog/favorites",
-            data={
-                "source_provider": "musicbrainz",
-                "external_id": album.external_id,
-                "type": "album",
-            },
-            content_type="application/json",
-        )
-        second_response = self.client.post(
-            "/api/catalog/favorites",
-            data={
-                "source_provider": "musicbrainz",
-                "external_id": album.external_id,
-                "type": "album",
-            },
-            content_type="application/json",
-        )
-
-        self.assertEqual(first_response.status_code, 200)
-        self.assertEqual(second_response.status_code, 200)
-        self.assertEqual(Favorite.objects.count(), 1)
-
-    def test_list_favorites_returns_tracks_and_albums(self):
+    def test_save_favorite_creates_user_favorite(self):
         self.client.force_login(self.user)
         music = self._create_music()
-        album = self._create_album()
-        Favorite.objects.create(user=self.user, music=music, position=1)
-        Favorite.objects.create(user=self.user, album=album, position=2)
+
+        response = self.client.post(
+            f"/api/catalog/favorites/{music.id}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["favorite"]["title"], "My Shot")
+        self.assertTrue(Favorite.objects.filter(user=self.user, music=music).exists())
+
+    def test_get_favorite_returns_current_state(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Favorite.objects.create(user=self.user, music=music)
+
+        response = self.client.get(f"/api/catalog/favorites/{music.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["favorite"]["musicId"], music.id)
+
+    def test_list_favorites_returns_recent_user_favorites(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Favorite.objects.create(user=self.user, music=music)
 
         response = self.client.get("/api/catalog/favorites")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()["items"]), 2)
-        self.assertEqual(response.json()["items"][0]["item"]["type"], "track")
-        self.assertEqual(response.json()["items"][1]["item"]["type"], "album")
-
-    def test_delete_favorite_removes_item(self):
-        self.client.force_login(self.user)
-        favorite = Favorite.objects.create(
-            user=self.user, music=self._create_music(), position=1
+        self.assertEqual(response.json()["items"][0]["title"], "My Shot")
+        self.assertEqual(
+            response.json()["items"][0]["artistName"], "Lin-Manuel Miranda"
         )
 
-        response = self.client.delete(f"/api/catalog/favorites/{favorite.id}")
+    def test_clear_favorite_removes_user_favorite(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Favorite.objects.create(user=self.user, music=music)
+
+        response = self.client.delete(f"/api/catalog/favorites/{music.id}")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"ok": True})
+        self.assertIsNone(response.json()["favorite"])
         self.assertEqual(Favorite.objects.count(), 0)
+
+    def test_save_favorite_rejects_more_than_five_songs(self):
+        self.client.force_login(self.user)
+
+        artist = Artist.objects.create(
+            name="Favorite Artist",
+            source_provider="musicbrainz",
+            external_id="artist-favorite-limit",
+        )
+        for index in range(5):
+            music = Music.objects.create(
+                title=f"Song {index}",
+                primary_artist=artist,
+                source_provider="musicbrainz",
+                external_id=f"favorite-song-{index}",
+            )
+            Favorite.objects.create(user=self.user, music=music)
+
+        extra_music = Music.objects.create(
+            title="Song extra",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="favorite-song-extra",
+        )
+        response = self.client.post(
+            f"/api/catalog/favorites/{extra_music.id}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["detail"], "You can have up to 5 favorite songs."
+        )
+        self.assertEqual(Favorite.objects.filter(user=self.user).count(), 5)
+
+    def test_save_album_creates_user_saved_album(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+
+        response = self.client.post(
+            f"/api/catalog/albums/saved/{album.id}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["savedAlbum"]["title"], "Hamilton")
+        self.assertTrue(SavedAlbum.objects.filter(user=self.user, album=album).exists())
+
+    def test_get_saved_album_returns_current_state(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+        SavedAlbum.objects.create(user=self.user, album=album)
+
+        response = self.client.get(f"/api/catalog/albums/saved/{album.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["savedAlbum"]["albumId"], album.id)
+
+    def test_list_saved_albums_returns_recent_user_albums(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+        SavedAlbum.objects.create(user=self.user, album=album)
+
+        response = self.client.get("/api/catalog/albums/saved")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["title"], "Hamilton")
+        self.assertEqual(
+            response.json()["items"][0]["artistName"], "Lin-Manuel Miranda"
+        )
+
+    def test_clear_saved_album_removes_user_album(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+        SavedAlbum.objects.create(user=self.user, album=album)
+
+        response = self.client.delete(f"/api/catalog/albums/saved/{album.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["savedAlbum"])
+        self.assertEqual(SavedAlbum.objects.count(), 0)
 
     def _create_music(self):
         artist = Artist.objects.create(
@@ -281,16 +364,17 @@ class CatalogApiTests(TestCase):
         )
 
     def _create_album(self):
-        artist, _ = Artist.objects.get_or_create(
-            name="Original Broadway Cast",
+        artist = Artist.objects.create(
+            name="Lin-Manuel Miranda",
             source_provider="musicbrainz",
-            external_id="artist-2",
+            external_id="artist-album-1",
         )
         return Album.objects.create(
             title="Hamilton",
             primary_artist=artist,
             source_provider="musicbrainz",
             external_id="release-1",
+            release_date="2015-09-25",
         )
 
 

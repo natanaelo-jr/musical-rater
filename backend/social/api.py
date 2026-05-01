@@ -3,6 +3,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from ninja import Router
 
+from catalog.models import Rating, SavedAlbum
 from social.models import Follow
 
 social_router = Router(tags=["social"])
@@ -30,6 +31,33 @@ def serialize_user_with_follow_state(user, following_ids):
     return {
         **serialize_user_summary(user),
         "isFollowing": user.id in following_ids,
+    }
+
+
+def serialize_rating_card(rating):
+    music = rating.music
+    return {
+        "id": rating.id,
+        "musicId": rating.music_id,
+        "score": rating.score,
+        "review": rating.review,
+        "updatedAt": rating.updated_at.isoformat(),
+        "title": music.title,
+        "artistName": music.primary_artist.name,
+        "albumTitle": music.album.title if music.album_id else "",
+        "artworkUrl": music.cover_url,
+    }
+
+
+def serialize_saved_album_card(saved_album):
+    album = saved_album.album
+    return {
+        "id": saved_album.id,
+        "albumId": saved_album.album_id,
+        "title": album.title,
+        "artistName": album.primary_artist.name,
+        "artworkUrl": album.cover_url,
+        "releaseDate": album.release_date,
     }
 
 
@@ -63,6 +91,53 @@ def search_users_view(request, q: str = ""):
         "items": [
             serialize_user_with_follow_state(user, following_ids) for user in users
         ]
+    }
+
+
+@social_router.get("/users/{user_id}")
+def get_public_profile_view(request, user_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    try:
+        user = User.objects.select_related("profile").get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({"detail": "User not found."}, status=404)
+
+    is_self = request.user.id == user.id
+    is_following = (
+        False
+        if is_self
+        else Follow.objects.filter(follower=request.user, following=user).exists()
+    )
+    ratings = (
+        Rating.objects.filter(user=user)
+        .select_related("music", "music__primary_artist", "music__album")
+        .order_by("-updated_at")[:12]
+    )
+    saved_albums = (
+        SavedAlbum.objects.filter(user=user)
+        .select_related("album", "album__primary_artist")
+        .order_by("-created_at")[:12]
+    )
+
+    return {
+        "profile": {
+            **serialize_user_summary(user),
+            "isSelf": is_self,
+            "isFollowing": is_following,
+            "stats": {
+                "ratings": Rating.objects.filter(user=user).count(),
+                "albums": SavedAlbum.objects.filter(user=user).count(),
+                "following": Follow.objects.filter(follower=user).count(),
+                "followers": Follow.objects.filter(following=user).count(),
+            },
+        },
+        "ratings": [serialize_rating_card(rating) for rating in ratings],
+        "savedAlbums": [
+            serialize_saved_album_card(saved_album) for saved_album in saved_albums
+        ],
     }
 
 
