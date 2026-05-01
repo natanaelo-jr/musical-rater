@@ -101,3 +101,22 @@ class Rating(models.Model):
 
     def __str__(self):
         return f"{self.user_id} rated {self.music_id}: {self.score}"
+
+
+class Favorite(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorites"
+    )
+    music = models.ForeignKey(Music, on_delete=models.CASCADE, related_name="favorites")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "music"],
+                name="catalog_favorite_user_music_unique",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} favorited {self.music_id}"

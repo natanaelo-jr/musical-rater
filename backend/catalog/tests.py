@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from catalog.models import Album, Artist, Music, Rating
+from catalog.models import Album, Artist, Favorite, Music, Rating
 
 
 class CatalogApiTests(TestCase):
@@ -221,6 +221,53 @@ class CatalogApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["rating"])
         self.assertEqual(Rating.objects.count(), 0)
+
+    def test_save_favorite_creates_user_favorite(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        response = self.client.post(
+            f"/api/catalog/favorites/{music.id}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["favorite"]["title"], "My Shot")
+        self.assertTrue(Favorite.objects.filter(user=self.user, music=music).exists())
+
+    def test_get_favorite_returns_current_state(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Favorite.objects.create(user=self.user, music=music)
+
+        response = self.client.get(f"/api/catalog/favorites/{music.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["favorite"]["musicId"], music.id)
+
+    def test_list_favorites_returns_recent_user_favorites(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Favorite.objects.create(user=self.user, music=music)
+
+        response = self.client.get("/api/catalog/favorites")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["title"], "My Shot")
+        self.assertEqual(
+            response.json()["items"][0]["artistName"], "Lin-Manuel Miranda"
+        )
+
+    def test_clear_favorite_removes_user_favorite(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+        Favorite.objects.create(user=self.user, music=music)
+
+        response = self.client.delete(f"/api/catalog/favorites/{music.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["favorite"])
+        self.assertEqual(Favorite.objects.count(), 0)
 
     def _create_music(self):
         artist = Artist.objects.create(

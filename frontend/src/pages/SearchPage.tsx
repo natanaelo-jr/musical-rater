@@ -18,6 +18,7 @@ type CatalogItem = {
   imported: boolean;
   myRating?: number;
   myReview?: string;
+  myFavorite?: boolean;
   metadata?: Record<string, unknown>;
 };
 
@@ -26,6 +27,11 @@ type Rating = {
   musicId: number;
   score: number;
   review: string;
+};
+
+type Favorite = {
+  id: number;
+  musicId: number;
 };
 
 type SearchResponse = {
@@ -98,6 +104,7 @@ export const SearchPage = () => {
   const [importingId, setImportingId] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [savingRating, setSavingRating] = useState(false);
+  const [savingFavorite, setSavingFavorite] = useState(false);
   const [draftScore, setDraftScore] = useState<number | null>(null);
   const [draftReview, setDraftReview] = useState("");
   const requestIdRef = useRef(0);
@@ -233,6 +240,38 @@ export const SearchPage = () => {
       });
   }, [selectedItem?.id, selectedItem?.imported, selectedItem?.type]);
 
+  useEffect(() => {
+    if (
+      !selectedItem?.id ||
+      selectedItem.type !== "track" ||
+      !selectedItem.imported
+    ) {
+      return;
+    }
+
+    void apiGet<{ favorite: Favorite | null }>(
+      `/catalog/favorites/${selectedItem.id}`,
+    )
+      .then((payload) => {
+        const isFavorite = Boolean(payload.favorite);
+        setResults((current) =>
+          current.map((entry) =>
+            entry.id === selectedItem.id
+              ? { ...entry, myFavorite: isFavorite }
+              : entry,
+          ),
+        );
+        setSelectedItem((current) =>
+          current && current.id === selectedItem.id
+            ? { ...current, myFavorite: isFavorite }
+            : current,
+        );
+      })
+      .catch((error: unknown) => {
+        setMessage(readError(error));
+      });
+  }, [selectedItem?.id, selectedItem?.imported, selectedItem?.type]);
+
   const importItem = async (item: CatalogItem) => {
     setImportingId(item.externalId);
 
@@ -358,6 +397,17 @@ export const SearchPage = () => {
     );
   };
 
+  const updateItemFavorite = (itemId: number, myFavorite: boolean) => {
+    setResults((current) =>
+      current.map((entry) =>
+        entry.id === itemId ? { ...entry, myFavorite } : entry,
+      ),
+    );
+    setSelectedItem((current) =>
+      current && current.id === itemId ? { ...current, myFavorite } : current,
+    );
+  };
+
   const saveRating = async (item: CatalogItem) => {
     if (!item.id) {
       return;
@@ -411,6 +461,35 @@ export const SearchPage = () => {
       setMessage(readError(error));
     } finally {
       setSavingRating(false);
+    }
+  };
+
+  const toggleFavorite = async (item: CatalogItem) => {
+    if (!item.id) {
+      return;
+    }
+
+    setSavingFavorite(true);
+
+    try {
+      const nextFavorite = !item.myFavorite;
+      await apiRequest<{ favorite: Favorite | null }>(
+        `/catalog/favorites/${item.id}`,
+        {
+          method: nextFavorite ? "POST" : "DELETE",
+          body: nextFavorite ? JSON.stringify({}) : undefined,
+        },
+      );
+      updateItemFavorite(item.id, nextFavorite);
+      setMessage(
+        nextFavorite
+          ? `"${item.title}" is in your favorites.`
+          : `Removed "${item.title}" from your favorites.`,
+      );
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setSavingFavorite(false);
     }
   };
 
@@ -658,6 +737,29 @@ export const SearchPage = () => {
             </button>
             {selectedItem.type === "track" && selectedItem.imported ? (
               <div className="grid gap-3 rounded-[22px] bg-white/4 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="m-0 leading-[1.6] text-foreground/82">
+                    {selectedItem.myFavorite
+                      ? "This track is on your profile favorites."
+                      : "Pin this track to your profile favorites."}
+                  </p>
+                  <button
+                    className={
+                      selectedItem.myFavorite
+                        ? ghostButtonClass
+                        : primaryButtonClass
+                    }
+                    disabled={savingFavorite}
+                    onClick={() => void toggleFavorite(selectedItem)}
+                    type="button"
+                  >
+                    {savingFavorite
+                      ? "Saving..."
+                      : selectedItem.myFavorite
+                        ? "Favorited"
+                        : "Favorite"}
+                  </button>
+                </div>
                 <p className="m-0 leading-[1.6] text-foreground/82">
                   {selectedItem.myRating
                     ? `Your rating: ${selectedItem.myRating}/5`

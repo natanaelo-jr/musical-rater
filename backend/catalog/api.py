@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from ninja import Router, Schema
 
-from catalog.models import Music, Rating
+from catalog.models import Favorite, Music, Rating
 from catalog.services import import_catalog_item, search_catalog
 
 catalog_router = Router(tags=["catalog"])
@@ -48,6 +48,19 @@ def serialize_rating_summary(rating):
     }
 
 
+def serialize_favorite(favorite):
+    music = favorite.music
+    return {
+        "id": favorite.id,
+        "musicId": favorite.music_id,
+        "title": music.title,
+        "artistName": music.primary_artist.name,
+        "albumTitle": music.album.title if music.album_id else "",
+        "artworkUrl": music.cover_url,
+        "createdAt": favorite.created_at.isoformat(),
+    }
+
+
 @catalog_router.get("/search")
 def search_catalog_view(request, q: str, type: str = "all", page: int = 1):
     auth_error = auth_required(request)
@@ -84,6 +97,71 @@ def list_ratings_view(request):
         .order_by("-updated_at")[:5]
     )
     return {"items": [serialize_rating_summary(rating) for rating in ratings]}
+
+
+@catalog_router.get("/favorites")
+def list_favorites_view(request):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    favorites = (
+        Favorite.objects.filter(user=request.user)
+        .select_related("music", "music__primary_artist", "music__album")
+        .order_by("-created_at")[:8]
+    )
+    return {"items": [serialize_favorite(favorite) for favorite in favorites]}
+
+
+@catalog_router.get("/favorites/{music_id}")
+def get_favorite_view(request, music_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Music.objects.filter(id=music_id).exists():
+        return JsonResponse({"detail": "Track not found."}, status=404)
+
+    favorite = (
+        Favorite.objects.filter(user=request.user, music_id=music_id)
+        .select_related("music", "music__primary_artist", "music__album")
+        .first()
+    )
+    return {"favorite": serialize_favorite(favorite) if favorite else None}
+
+
+@catalog_router.post("/favorites/{music_id}")
+def save_favorite_view(request, music_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Music.objects.filter(id=music_id).exists():
+        return JsonResponse({"detail": "Track not found."}, status=404)
+
+    favorite, _ = Favorite.objects.get_or_create(
+        user=request.user,
+        music_id=music_id,
+    )
+    favorite = (
+        Favorite.objects.filter(id=favorite.id)
+        .select_related("music", "music__primary_artist", "music__album")
+        .get()
+    )
+    return {"favorite": serialize_favorite(favorite)}
+
+
+@catalog_router.delete("/favorites/{music_id}")
+def clear_favorite_view(request, music_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Music.objects.filter(id=music_id).exists():
+        return JsonResponse({"detail": "Track not found."}, status=404)
+
+    Favorite.objects.filter(user=request.user, music_id=music_id).delete()
+    return {"favorite": None}
 
 
 @catalog_router.get("/ratings/{music_id}")
