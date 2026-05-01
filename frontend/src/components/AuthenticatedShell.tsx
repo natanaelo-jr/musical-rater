@@ -69,6 +69,7 @@ export const AuthenticatedShell = () => {
               { label: "Dashboard", to: "/app" },
               { label: "Search", to: "/app/search" },
               { label: "People", to: "/app/people" },
+              { label: "Notifications", to: "/app/notifications" },
               { label: "Profile", to: "/app/profile" },
             ].map((item) => (
               <NavLink

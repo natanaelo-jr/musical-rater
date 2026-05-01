@@ -407,6 +407,10 @@ def create_rating_comment_view(request, rating_id: int, payload: RatingCommentIn
         .get()
     )
 
+    from social.notifications import notify_rating_comment_created
+
+    notify_rating_comment_created(comment=comment, rating=rating)
+
     payload_out = serialize_rating_comment(comment)
     payload_out["replies"] = []
     return {"comment": payload_out}

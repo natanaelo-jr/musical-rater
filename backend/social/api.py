@@ -1,10 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.http import JsonResponse
+from django.utils import timezone
 from ninja import Router
 
 from catalog.models import Rating, SavedAlbum
-from social.models import Follow
+from social.models import Follow, Notification
 
 social_router = Router(tags=["social"])
 User = get_user_model()
@@ -58,6 +59,18 @@ def serialize_saved_album_card(saved_album):
         "artistName": album.primary_artist.name,
         "artworkUrl": album.cover_url,
         "releaseDate": album.release_date,
+    }
+
+
+def serialize_notification(notification):
+    return {
+        "id": notification.id,
+        "kind": notification.kind,
+        "read": notification.read_at is not None,
+        "createdAt": notification.created_at.isoformat(),
+        "actor": serialize_user_summary(notification.actor),
+        "ratingId": notification.rating_id,
+        "commentId": notification.comment_id,
     }
 
 
@@ -169,7 +182,13 @@ def follow_user_view(request, user_id: int):
     except User.DoesNotExist:
         return JsonResponse({"detail": "User not found."}, status=404)
 
-    Follow.objects.get_or_create(follower=request.user, following=user_to_follow)
+    follow, created = Follow.objects.get_or_create(
+        follower=request.user, following=user_to_follow
+    )
+    if created:
+        from social.notifications import notify_new_follower
+
+        notify_new_follower(follower=request.user, followed=user_to_follow)
     return {"following": serialize_user_summary(user_to_follow)}
 
 
@@ -183,3 +202,48 @@ def unfollow_user_view(request, user_id: int):
         follower=request.user, following_id=user_id
     ).delete()
     return {"ok": True, "removed": deleted_count > 0}
+
+
+@social_router.get("/notifications")
+def list_notifications_view(request, unread_only: bool = False):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    notifications = Notification.objects.filter(recipient=request.user)
+    if unread_only:
+        notifications = notifications.filter(read_at__isnull=True)
+    notifications = notifications.select_related("actor", "actor__profile").order_by(
+        "-created_at"
+    )[:50]
+    return {
+        "items": [serialize_notification(n) for n in notifications],
+    }
+
+
+@social_router.post("/notifications/{notification_id}/read")
+def mark_notification_read_view(request, notification_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    updated = Notification.objects.filter(
+        id=notification_id,
+        recipient=request.user,
+        read_at__isnull=True,
+    ).update(read_at=timezone.now())
+    if not updated:
+        return JsonResponse({"detail": "Notification not found."}, status=404)
+    return {"ok": True}
+
+
+@social_router.post("/notifications/read-all")
+def mark_all_notifications_read_view(request):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    Notification.objects.filter(
+        recipient=request.user, read_at__isnull=True
+    ).update(read_at=timezone.now())
+    return {"ok": True}

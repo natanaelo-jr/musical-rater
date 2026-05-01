@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from catalog.models import Album, Artist, Music, Rating, SavedAlbum
-from social.models import Follow
+from social.models import Follow, Notification
 
 
 class SocialApiTests(TestCase):
@@ -41,6 +41,26 @@ class SocialApiTests(TestCase):
             Follow.objects.filter(
                 follower=self.user, following=self.other_user
             ).exists()
+        )
+        notification = Notification.objects.get(recipient=self.other_user)
+        self.assertEqual(notification.kind, Notification.Kind.NEW_FOLLOWER)
+        self.assertEqual(notification.actor_id, self.user.id)
+
+    def test_follow_idempotent_does_not_create_extra_notifications(self):
+        self.client.force_login(self.user)
+
+        self.client.post(
+            f"/api/social/following/{self.other_user.id}",
+            content_type="application/json",
+        )
+        self.client.post(
+            f"/api/social/following/{self.other_user.id}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(
+            Notification.objects.filter(recipient=self.other_user).count(),
+            1,
         )
 
     def test_search_users_returns_matching_profiles_with_follow_state(self):
@@ -154,3 +174,98 @@ class SocialApiTests(TestCase):
                 follower=self.user, following=self.other_user
             ).exists()
         )
+
+    def test_rating_comment_notifies_rating_owner(self):
+        artist = Artist.objects.create(
+            name="Artist",
+            source_provider="musicbrainz",
+            external_id="a1",
+        )
+        music = Music.objects.create(
+            title="Track",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="t1",
+        )
+        rating = Rating.objects.create(
+            user=self.other_user, music=music, score=5, review="Nice."
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(
+            f"/api/catalog/music-ratings/{rating.id}/comments",
+            data={"body": "Agreed."},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.other_user,
+                kind=Notification.Kind.COMMENT_ON_RATING,
+                rating_id=rating.id,
+            ).exists()
+        )
+
+    def test_rating_reply_notifies_parent_comment_author(self):
+        artist = Artist.objects.create(
+            name="Artist",
+            source_provider="musicbrainz",
+            external_id="a2",
+        )
+        music = Music.objects.create(
+            title="Track",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="t2",
+        )
+        rating = Rating.objects.create(
+            user=self.other_user, music=music, score=4, review="Ok."
+        )
+        self.client.force_login(self.user)
+        first = self.client.post(
+            f"/api/catalog/music-ratings/{rating.id}/comments",
+            data={"body": "Root"},
+            content_type="application/json",
+        )
+        parent_id = first.json()["comment"]["id"]
+        self.client.force_login(self.other_user)
+        self.client.post(
+            f"/api/catalog/music-ratings/{rating.id}/comments",
+            data={"body": "Thanks", "parent_id": parent_id},
+            content_type="application/json",
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.user,
+                kind=Notification.Kind.REPLY_TO_COMMENT,
+            ).exists()
+        )
+
+    def test_list_notifications_and_mark_read(self):
+        Notification.objects.create(
+            recipient=self.user,
+            actor=self.other_user,
+            kind=Notification.Kind.NEW_FOLLOWER,
+        )
+        self.client.force_login(self.user)
+
+        listed = self.client.get("/api/social/notifications")
+        self.assertEqual(listed.status_code, 200)
+        notification_id = listed.json()["items"][0]["id"]
+        self.assertEqual(listed.json()["items"][0]["read"], False)
+
+        read = self.client.post(
+            f"/api/social/notifications/{notification_id}/read",
+            content_type="application/json",
+        )
+        self.assertEqual(read.status_code, 200)
+        self.assertTrue(
+            Notification.objects.filter(
+                id=notification_id, read_at__isnull=False
+            ).exists()
+        )
+
+        all_read = self.client.post(
+            "/api/social/notifications/read-all",
+            content_type="application/json",
+        )
+        self.assertEqual(all_read.status_code, 200)
