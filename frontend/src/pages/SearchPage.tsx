@@ -30,6 +30,14 @@ type Rating = {
   review: string;
 };
 
+type AlbumRating = {
+  id: number;
+  albumId: number;
+  score: number;
+  review: string;
+  updatedAt: string;
+};
+
 type Favorite = {
   id: number;
   musicId: number;
@@ -331,6 +339,48 @@ export const SearchPage = () => {
   useEffect(() => {
     if (
       !selectedItem?.id ||
+      selectedItem.type !== "album" ||
+      !selectedItem.imported
+    ) {
+      return;
+    }
+
+    void apiGet<{ rating: AlbumRating | null }>(
+      `/catalog/album-ratings/${selectedItem.id}`,
+    )
+      .then((payload) => {
+        const nextRating = payload.rating;
+        setResults((current) =>
+          current.map((entry) =>
+            entry.id === selectedItem.id
+              ? {
+                  ...entry,
+                  myRating: nextRating?.score,
+                  myReview: nextRating?.review ?? "",
+                }
+              : entry,
+          ),
+        );
+        setSelectedItem((current) =>
+          current && current.id === selectedItem.id
+            ? {
+                ...current,
+                myRating: nextRating?.score,
+                myReview: nextRating?.review ?? "",
+              }
+            : current,
+        );
+        setDraftScore(nextRating?.score ?? null);
+        setDraftReview(nextRating?.review ?? "");
+      })
+      .catch((error: unknown) => {
+        setMessage(readError(error));
+      });
+  }, [selectedItem?.id, selectedItem?.imported, selectedItem?.type]);
+
+  useEffect(() => {
+    if (
+      !selectedItem?.id ||
       selectedItem.type !== "track" ||
       !selectedItem.imported
     ) {
@@ -563,6 +613,62 @@ export const SearchPage = () => {
     }
   };
 
+  const saveAlbumRating = async (item: CatalogItem) => {
+    if (!item.id || item.type !== "album") {
+      return;
+    }
+
+    if (!draftScore) {
+      setMessage("Choose a score before saving your review.");
+      return;
+    }
+
+    setSavingRating(true);
+
+    try {
+      const payload = await apiRequest<{ rating: AlbumRating }>(
+        `/catalog/album-ratings/${item.id}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            score: draftScore,
+            review: draftReview,
+          }),
+        },
+      );
+      updateItemRating(item.id, payload.rating.score, payload.rating.review);
+      setDraftScore(payload.rating.score);
+      setDraftReview(payload.rating.review);
+      setMessage(`Saved your album review for "${item.title}".`);
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setSavingRating(false);
+    }
+  };
+
+  const clearAlbumRating = async (item: CatalogItem) => {
+    if (!item.id || item.type !== "album") {
+      return;
+    }
+
+    setSavingRating(true);
+
+    try {
+      await apiRequest<{ rating: null }>(`/catalog/album-ratings/${item.id}`, {
+        method: "DELETE",
+      });
+      updateItemRating(item.id);
+      setDraftScore(null);
+      setDraftReview("");
+      setMessage(`Cleared your album rating for "${item.title}".`);
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setSavingRating(false);
+    }
+  };
+
   const toggleFavorite = async (item: CatalogItem) => {
     if (!item.id) {
       return;
@@ -769,7 +875,8 @@ export const SearchPage = () => {
                     </span>
                     {item.myRating ? (
                       <span className="rounded-full bg-secondary/16 px-3 py-2 text-[0.78rem] font-semibold text-foreground">
-                        Rated {item.myRating}/5
+                        {item.type === "album" ? "Album " : ""}Rated{" "}
+                        {item.myRating}/5
                       </span>
                     ) : null}
                     {item.myFavorite ? (
@@ -1019,6 +1126,93 @@ export const SearchPage = () => {
                 <p className="m-0 leading-[1.6] text-foreground/82">
                   Save this track to your catalog before adding a favorite or
                   review.
+                </p>
+              </section>
+            ) : null}
+
+            {selectedItem.type === "album" && selectedItem.imported ? (
+              <section className="mt-6 grid gap-4 rounded-[24px] border border-foreground/12 bg-white/4 p-5">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="mb-2 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+                      Your album review
+                    </p>
+                    <h3 className="m-0 text-[clamp(1.4rem,2.4vw,2.2rem)] leading-[1.05]">
+                      {selectedItem.myRating
+                        ? `${selectedItem.myRating}/5 saved`
+                        : "Rate this album"}
+                    </h3>
+                  </div>
+                  {selectedItem.myRating ? (
+                    <button
+                      className={ghostButtonClass}
+                      disabled={savingRating}
+                      onClick={() => void clearAlbumRating(selectedItem)}
+                      type="button"
+                    >
+                      Clear Review
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-3">
+                  <span className="text-sm text-primary">Score</span>
+                  <div
+                    aria-label="Rate this album"
+                    className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap"
+                    role="group"
+                  >
+                    {[1, 2, 3, 4, 5].map((score) => (
+                      <button
+                        aria-pressed={draftScore === score}
+                        className={`min-h-[52px] rounded-[16px] border px-4 py-2 text-lg font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface sm:min-w-[56px] ${
+                          draftScore === score
+                            ? "border-secondary bg-linear-to-br from-primary/24 to-secondary/30 text-foreground"
+                            : "border-foreground/12 bg-foreground/5 text-foreground hover:border-secondary/50"
+                        }`}
+                        disabled={savingRating}
+                        key={score}
+                        onClick={() => setDraftScore(score)}
+                        type="button"
+                      >
+                        {score}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="grid gap-2" htmlFor="album-rating-review">
+                  <span className="text-sm text-primary">Review</span>
+                  <textarea
+                    className="min-h-[150px] w-full resize-y rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 leading-[1.6] text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                    disabled={savingRating}
+                    id="album-rating-review"
+                    maxLength={2000}
+                    onChange={(event) => setDraftReview(event.target.value)}
+                    placeholder="How does the album work as a whole? Mention pacing, standouts, and production."
+                    value={draftReview}
+                  />
+                  <span className="text-sm text-foreground/62">
+                    {draftReview.length}/2000 characters
+                  </span>
+                </label>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className={primaryButtonClass}
+                    disabled={savingRating || !draftScore}
+                    onClick={() => void saveAlbumRating(selectedItem)}
+                    type="button"
+                  >
+                    {savingRating ? "Saving..." : "Save Review"}
+                  </button>
+                </div>
+              </section>
+            ) : selectedItem.type === "album" ? (
+              <section className="mt-6 rounded-[24px] border border-foreground/12 bg-white/4 p-5">
+                <p className="m-0 leading-[1.6] text-foreground/82">
+                  Save this album to your catalog before you can rate it or add
+                  it to your profile.
                 </p>
               </section>
             ) : null}

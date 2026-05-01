@@ -8,14 +8,17 @@ import { Field, TextAreaField } from "../components/forms";
 import { RatingCommentsSection } from "../components/RatingCommentsSection";
 import { apiGet, apiRequest } from "../lib/api";
 
-type RatingSummary = {
+type ReviewItem = {
+  kind: "track" | "album";
   id: number;
-  musicId: number;
+  musicId: number | null;
+  albumId: number | null;
   score: number;
   review: string;
+  updatedAt: string;
   title: string;
   artistName: string;
-  albumTitle?: string;
+  albumTitle?: string | null;
   artworkUrl?: string;
 };
 
@@ -80,7 +83,7 @@ export const ProfilePage = () => {
   const [username, setUsername] = useState(user?.username ?? "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? "");
   const [bio, setBio] = useState(user?.bio ?? "");
-  const [ratings, setRatings] = useState<RatingSummary[]>([]);
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteSummary[]>([]);
   const [savedAlbums, setSavedAlbums] = useState<SavedAlbumSummary[]>([]);
   const [visibleRatings, setVisibleRatings] = useState(PROFILE_SECTION_STEP);
@@ -104,12 +107,19 @@ export const ProfilePage = () => {
       return;
     }
 
-    void apiGet<{ items: RatingSummary[] }>("/catalog/ratings")
-      .then((payload) => {
-        setRatings(payload.items);
+    void Promise.all([
+      apiGet<{ items: ReviewItem[] }>("/catalog/ratings"),
+      apiGet<{ items: ReviewItem[] }>("/catalog/album-ratings"),
+    ])
+      .then(([tracks, albums]) => {
+        const merged = [...tracks.items, ...albums.items].sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+        );
+        setReviews(merged);
         setVisibleRatings(PROFILE_SECTION_STEP);
       })
-      .catch(() => setRatings([]));
+      .catch(() => setReviews([]));
 
     void apiGet<{ items: FavoriteSummary[] }>("/catalog/favorites")
       .then((payload) => setFavorites(payload.items))
@@ -123,7 +133,7 @@ export const ProfilePage = () => {
       .catch(() => setSavedAlbums([]));
   }, [user]);
 
-  const visibleRatingsItems = ratings.slice(0, visibleRatings);
+  const visibleRatingsItems = reviews.slice(0, visibleRatings);
   const visibleSavedAlbumItems = savedAlbums.slice(0, visibleSavedAlbums);
 
   if (!user) {
@@ -213,7 +223,7 @@ export const ProfilePage = () => {
 
         <dl className="grid gap-3 sm:grid-cols-3">
           {[
-            ["Reviews", ratings.length],
+            ["Reviews", reviews.length],
             ["Albums", savedAlbums.length],
             ["Favorites", favorites.length],
           ].map(([label, value]) => (
@@ -380,16 +390,19 @@ export const ProfilePage = () => {
               Recent thoughts
             </h2>
           </div>
-          {ratings.length ? (
+          {reviews.length ? (
             <>
               <div className="grid gap-4">
                 {visibleRatingsItems.map((rating) => (
                   <article
                     className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-5 sm:grid-cols-[64px_minmax(0,1fr)_auto]"
-                    key={rating.id}
+                    key={`${rating.kind}-${rating.id}`}
                   >
                     {artwork(rating, "h-16 w-16")}
                     <div className="min-w-0">
+                      <p className="mb-1 text-[0.7rem] uppercase tracking-[0.12em] text-primary">
+                        {rating.kind === "album" ? "Album" : "Track"}
+                      </p>
                       <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
                         {rating.title}
                       </h3>
@@ -405,12 +418,14 @@ export const ProfilePage = () => {
                       {rating.score}/5
                     </span>
                     <div className="sm:col-span-3">
-                      <RatingCommentsSection ratingId={rating.id} />
+                      {rating.kind === "track" ? (
+                        <RatingCommentsSection ratingId={rating.id} />
+                      ) : null}
                     </div>
                   </article>
                 ))}
               </div>
-              {ratings.length > visibleRatingsItems.length ? (
+              {reviews.length > visibleRatingsItems.length ? (
                 <button
                   className={ghostButtonClass}
                   onClick={() =>
@@ -424,7 +439,8 @@ export const ProfilePage = () => {
             </>
           ) : (
             <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-              Your latest reviews will appear here after you rate tracks.
+              Your latest reviews will appear here after you rate tracks or
+              albums from search.
             </div>
           )}
         </section>

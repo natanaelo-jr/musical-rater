@@ -3,6 +3,7 @@ from ninja import Router, Schema
 
 from catalog.models import (
     Album,
+    AlbumRating,
     Favorite,
     Music,
     Rating,
@@ -50,13 +51,38 @@ def serialize_rating(rating):
     }
 
 
+def serialize_album_rating(album_rating):
+    return {
+        "id": album_rating.id,
+        "albumId": album_rating.album_id,
+        "score": album_rating.score,
+        "review": album_rating.review,
+        "updatedAt": album_rating.updated_at.isoformat(),
+    }
+
+
 def serialize_rating_summary(rating):
     return {
+        "kind": "track",
         **serialize_rating(rating),
+        "albumId": None,
         "title": rating.music.title,
         "artistName": rating.music.primary_artist.name,
         "albumTitle": rating.music.album.title if rating.music.album_id else "",
         "artworkUrl": rating.music.cover_url,
+    }
+
+
+def serialize_album_rating_summary(album_rating):
+    album = album_rating.album
+    return {
+        "kind": "album",
+        **serialize_album_rating(album_rating),
+        "musicId": None,
+        "title": album.title,
+        "artistName": album.primary_artist.name,
+        "albumTitle": None,
+        "artworkUrl": album.cover_url,
     }
 
 
@@ -142,6 +168,78 @@ def list_ratings_view(request):
         .order_by("-updated_at")[:5]
     )
     return {"items": [serialize_rating_summary(rating) for rating in ratings]}
+
+
+@catalog_router.get("/album-ratings")
+def list_album_ratings_view(request):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    album_ratings = (
+        AlbumRating.objects.filter(user=request.user)
+        .select_related("album", "album__primary_artist")
+        .order_by("-updated_at")[:5]
+    )
+    return {
+        "items": [
+            serialize_album_rating_summary(ar) for ar in album_ratings
+        ],
+    }
+
+
+@catalog_router.get("/album-ratings/{album_id}")
+def get_album_rating_view(request, album_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Album.objects.filter(id=album_id).exists():
+        return JsonResponse({"detail": "Album not found."}, status=404)
+
+    album_rating = AlbumRating.objects.filter(
+        user=request.user, album_id=album_id
+    ).first()
+    return {
+        "rating": serialize_album_rating(album_rating) if album_rating else None,
+    }
+
+
+@catalog_router.post("/album-ratings/{album_id}")
+def save_album_rating_view(request, album_id: int, payload: RatingInput):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if payload.score < 1 or payload.score > 5:
+        return validation_error({"score": "Score must be between 1 and 5."})
+
+    review = payload.review.strip()
+    if len(review) > 2000:
+        return validation_error({"review": "Review must be 2000 characters or less."})
+
+    if not Album.objects.filter(id=album_id).exists():
+        return JsonResponse({"detail": "Album not found."}, status=404)
+
+    album_rating, _ = AlbumRating.objects.update_or_create(
+        user=request.user,
+        album_id=album_id,
+        defaults={"score": payload.score, "review": review},
+    )
+    return {"rating": serialize_album_rating(album_rating)}
+
+
+@catalog_router.delete("/album-ratings/{album_id}")
+def clear_album_rating_view(request, album_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Album.objects.filter(id=album_id).exists():
+        return JsonResponse({"detail": "Album not found."}, status=404)
+
+    AlbumRating.objects.filter(user=request.user, album_id=album_id).delete()
+    return {"rating": None}
 
 
 @catalog_router.get("/favorites")

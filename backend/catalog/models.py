@@ -103,6 +103,30 @@ class Rating(models.Model):
         return f"{self.user_id} rated {self.music_id}: {self.score}"
 
 
+class AlbumRating(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="album_ratings"
+    )
+    album = models.ForeignKey(Album, on_delete=models.CASCADE, related_name="ratings")
+    score = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    review = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "album"],
+                name="catalog_album_rating_user_album_unique",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} rated album {self.album_id}: {self.score}"
+
+
 class RatingComment(models.Model):
     rating = models.ForeignKey(
         Rating, on_delete=models.CASCADE, related_name="comments"

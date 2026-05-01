@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from catalog.models import Album, Artist, Music, Rating, SavedAlbum
+from catalog.models import Album, AlbumRating, Artist, Music, Rating, SavedAlbum
 from social.models import Follow, Notification
 
 
@@ -117,6 +117,40 @@ class SocialApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["items"][0]["displayName"], "Critic")
 
+    def test_public_profile_merges_track_and_album_reviews(self):
+        self.client.force_login(self.user)
+        artist = Artist.objects.create(
+            name="Artist",
+            source_provider="musicbrainz",
+            external_id="merge-artist",
+        )
+        music = Music.objects.create(
+            title="Song",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="merge-track",
+        )
+        album = Album.objects.create(
+            title="LP",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="merge-album",
+        )
+        Rating.objects.create(
+            user=self.other_user, music=music, score=3, review="Track note."
+        )
+        AlbumRating.objects.create(
+            user=self.other_user, album=album, score=5, review="Album note."
+        )
+
+        response = self.client.get(f"/api/social/users/{self.other_user.id}")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["profile"]["stats"]["ratings"], 2)
+        kinds = {item["kind"] for item in payload["ratings"]}
+        self.assertEqual(kinds, {"track", "album"})
+
     def test_public_profile_returns_stats_ratings_and_follow_state(self):
         self.client.force_login(self.user)
         Follow.objects.create(follower=self.user, following=self.other_user)
@@ -155,6 +189,7 @@ class SocialApiTests(TestCase):
         self.assertEqual(payload["profile"]["stats"]["albums"], 1)
         self.assertEqual(payload["profile"]["stats"]["followers"], 1)
         self.assertEqual(payload["savedAlbums"][0]["title"], "Hamilton")
+        self.assertEqual(payload["ratings"][0]["kind"], "track")
         self.assertEqual(payload["ratings"][0]["title"], "My Shot")
         self.assertEqual(
             payload["ratings"][0]["review"],

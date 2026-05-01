@@ -5,6 +5,7 @@ from django.test import TestCase
 
 from catalog.models import (
     Album,
+    AlbumRating,
     Artist,
     Favorite,
     Music,
@@ -212,6 +213,7 @@ class CatalogApiTests(TestCase):
         response = self.client.get("/api/catalog/ratings")
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["kind"], "track")
         self.assertEqual(response.json()["items"][0]["title"], "My Shot")
         self.assertEqual(
             response.json()["items"][0]["artistName"], "Lin-Manuel Miranda"
@@ -357,6 +359,60 @@ class CatalogApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["savedAlbum"])
         self.assertEqual(SavedAlbum.objects.count(), 0)
+
+    def test_save_album_rating_creates_or_updates(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+
+        first = self.client.post(
+            f"/api/catalog/album-ratings/{album.id}",
+            data={"score": 4, "review": "Solid cast recording."},
+            content_type="application/json",
+        )
+        second = self.client.post(
+            f"/api/catalog/album-ratings/{album.id}",
+            data={"score": 5, "review": "Even better on relisten."},
+            content_type="application/json",
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["rating"]["score"], 5)
+        self.assertEqual(AlbumRating.objects.count(), 1)
+
+    def test_list_album_ratings_returns_summaries(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+        AlbumRating.objects.create(
+            user=self.user, album=album, score=4, review="Grand."
+        )
+
+        response = self.client.get("/api/catalog/album-ratings")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["kind"], "album")
+        self.assertEqual(response.json()["items"][0]["title"], "Hamilton")
+
+    def test_get_album_rating_returns_current_user_row(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+        AlbumRating.objects.create(user=self.user, album=album, score=3)
+
+        response = self.client.get(f"/api/catalog/album-ratings/{album.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["rating"]["albumId"], album.id)
+
+    def test_clear_album_rating_removes_row(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+        AlbumRating.objects.create(user=self.user, album=album, score=3)
+
+        response = self.client.delete(f"/api/catalog/album-ratings/{album.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["rating"])
+        self.assertEqual(AlbumRating.objects.count(), 0)
 
     def test_list_rating_comments_returns_empty(self):
         self.client.force_login(self.user)

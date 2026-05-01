@@ -20,15 +20,17 @@ type PublicProfile = {
   };
 };
 
-type PublicRating = {
+type PublicReviewItem = {
+  kind: "track" | "album";
   id: number;
-  musicId: number;
+  musicId: number | null;
+  albumId: number | null;
   score: number;
   review: string;
   updatedAt: string;
   title: string;
   artistName: string;
-  albumTitle?: string;
+  albumTitle?: string | null;
   artworkUrl?: string;
 };
 
@@ -43,7 +45,7 @@ type PublicSavedAlbum = {
 
 type ProfileResponse = {
   profile: PublicProfile;
-  ratings: PublicRating[];
+  ratings: PublicReviewItem[];
   savedAlbums: PublicSavedAlbum[];
 };
 
@@ -81,7 +83,7 @@ const initials = (name: string) =>
 export const PublicProfilePage = () => {
   const { userId } = useParams();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
-  const [ratings, setRatings] = useState<PublicRating[]>([]);
+  const [ratings, setRatings] = useState<PublicReviewItem[]>([]);
   const [savedAlbums, setSavedAlbums] = useState<PublicSavedAlbum[]>([]);
   const [visibleRatings, setVisibleRatings] = useState(PROFILE_SECTION_STEP);
   const [visibleSavedAlbums, setVisibleSavedAlbums] =
@@ -337,7 +339,7 @@ export const PublicProfilePage = () => {
               {visibleRatingsItems.map((rating) => (
                 <article
                   className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-5 md:grid-cols-[76px_minmax(0,1fr)_auto]"
-                  key={rating.id}
+                  key={`${rating.kind}-${rating.id}`}
                 >
                   <div className="h-[76px] w-[76px] overflow-hidden rounded-[18px] bg-linear-to-br from-primary/24 to-secondary/24">
                     {rating.artworkUrl ? (
@@ -349,11 +351,14 @@ export const PublicProfilePage = () => {
                       />
                     ) : (
                       <div className="grid h-full w-full place-items-center text-2xl font-bold">
-                        ♪
+                        {rating.kind === "album" ? "LP" : "♪"}
                       </div>
                     )}
                   </div>
                   <div className="min-w-0">
+                    <p className="mb-1 text-[0.7rem] uppercase tracking-[0.12em] text-primary">
+                      {rating.kind === "album" ? "Album" : "Track"}
+                    </p>
                     <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
                       {rating.title}
                     </h3>
@@ -380,7 +385,9 @@ export const PublicProfilePage = () => {
                     </time>
                   </div>
                   <div className="md:col-span-3">
-                    <RatingCommentsSection ratingId={rating.id} />
+                    {rating.kind === "track" ? (
+                      <RatingCommentsSection ratingId={rating.id} />
+                    ) : null}
                   </div>
                 </article>
               ))}
