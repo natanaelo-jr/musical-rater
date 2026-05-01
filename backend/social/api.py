@@ -3,7 +3,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from ninja import Router
 
-from catalog.models import Rating
+from catalog.models import Rating, SavedAlbum
 from social.models import Follow
 
 social_router = Router(tags=["social"])
@@ -46,6 +46,18 @@ def serialize_rating_card(rating):
         "artistName": music.primary_artist.name,
         "albumTitle": music.album.title if music.album_id else "",
         "artworkUrl": music.cover_url,
+    }
+
+
+def serialize_saved_album_card(saved_album):
+    album = saved_album.album
+    return {
+        "id": saved_album.id,
+        "albumId": saved_album.album_id,
+        "title": album.title,
+        "artistName": album.primary_artist.name,
+        "artworkUrl": album.cover_url,
+        "releaseDate": album.release_date,
     }
 
 
@@ -104,6 +116,11 @@ def get_public_profile_view(request, user_id: int):
         .select_related("music", "music__primary_artist", "music__album")
         .order_by("-updated_at")[:12]
     )
+    saved_albums = (
+        SavedAlbum.objects.filter(user=user)
+        .select_related("album", "album__primary_artist")
+        .order_by("-created_at")[:12]
+    )
 
     return {
         "profile": {
@@ -112,11 +129,15 @@ def get_public_profile_view(request, user_id: int):
             "isFollowing": is_following,
             "stats": {
                 "ratings": Rating.objects.filter(user=user).count(),
+                "albums": SavedAlbum.objects.filter(user=user).count(),
                 "following": Follow.objects.filter(follower=user).count(),
                 "followers": Follow.objects.filter(following=user).count(),
             },
         },
         "ratings": [serialize_rating_card(rating) for rating in ratings],
+        "savedAlbums": [
+            serialize_saved_album_card(saved_album) for saved_album in saved_albums
+        ],
     }
 
 

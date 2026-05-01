@@ -5,7 +5,7 @@ import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
 import { focusFirstFieldError } from "../components/formUtils";
 import { Field, TextAreaField } from "../components/forms";
-import { apiGet } from "../lib/api";
+import { apiGet, apiRequest } from "../lib/api";
 
 type RatingSummary = {
   id: number;
@@ -27,12 +27,22 @@ type FavoriteSummary = {
   artworkUrl?: string;
 };
 
+type SavedAlbumSummary = {
+  id: number;
+  albumId: number;
+  title: string;
+  artistName: string;
+  artworkUrl?: string;
+  releaseDate?: string;
+};
+
 const cardClass =
   "rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]";
 const primaryButtonClass =
   "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const ghostButtonClass =
   "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+const PROFILE_SECTION_STEP = 3;
 
 const initials = (value: string) =>
   value
@@ -71,6 +81,11 @@ export const ProfilePage = () => {
   const [bio, setBio] = useState(user?.bio ?? "");
   const [ratings, setRatings] = useState<RatingSummary[]>([]);
   const [favorites, setFavorites] = useState<FavoriteSummary[]>([]);
+  const [savedAlbums, setSavedAlbums] = useState<SavedAlbumSummary[]>([]);
+  const [visibleRatings, setVisibleRatings] = useState(PROFILE_SECTION_STEP);
+  const [visibleSavedAlbums, setVisibleSavedAlbums] =
+    useState(PROFILE_SECTION_STEP);
+  const [removingAlbumId, setRemovingAlbumId] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState("");
@@ -89,13 +104,26 @@ export const ProfilePage = () => {
     }
 
     void apiGet<{ items: RatingSummary[] }>("/catalog/ratings")
-      .then((payload) => setRatings(payload.items))
+      .then((payload) => {
+        setRatings(payload.items);
+        setVisibleRatings(PROFILE_SECTION_STEP);
+      })
       .catch(() => setRatings([]));
 
     void apiGet<{ items: FavoriteSummary[] }>("/catalog/favorites")
       .then((payload) => setFavorites(payload.items))
       .catch(() => setFavorites([]));
+
+    void apiGet<{ items: SavedAlbumSummary[] }>("/catalog/albums/saved")
+      .then((payload) => {
+        setSavedAlbums(payload.items);
+        setVisibleSavedAlbums(PROFILE_SECTION_STEP);
+      })
+      .catch(() => setSavedAlbums([]));
   }, [user]);
+
+  const visibleRatingsItems = ratings.slice(0, visibleRatings);
+  const visibleSavedAlbumItems = savedAlbums.slice(0, visibleSavedAlbums);
 
   if (!user) {
     return null;
@@ -117,6 +145,28 @@ export const ProfilePage = () => {
       focusFirstFieldError(nextErrors);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const removeSavedAlbum = async (album: SavedAlbumSummary) => {
+    setRemovingAlbumId(album.albumId);
+
+    try {
+      await apiRequest<{ savedAlbum: null }>(
+        `/catalog/albums/saved/${album.albumId}`,
+        {
+          method: "DELETE",
+        },
+      );
+      setSavedAlbums((current) => {
+        const updated = current.filter(
+          (item) => item.albumId !== album.albumId,
+        );
+        setVisibleSavedAlbums((count) => Math.min(count, updated.length || 3));
+        return updated;
+      });
+    } finally {
+      setRemovingAlbumId(null);
     }
   };
 
@@ -163,8 +213,8 @@ export const ProfilePage = () => {
         <dl className="grid gap-3 sm:grid-cols-3">
           {[
             ["Reviews", ratings.length],
+            ["Albums", savedAlbums.length],
             ["Favorites", favorites.length],
-            ["Profile", user.username && user.bio ? "Ready" : "Needs info"],
           ].map(([label, value]) => (
             <div className="rounded-[20px] bg-white/4 p-5" key={label}>
               <dt className="mb-2 text-sm text-primary">{label}</dt>
@@ -250,6 +300,75 @@ export const ProfilePage = () => {
         </section>
       ) : null}
 
+      <section className={`${cardClass} grid gap-5`}>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+              Saved albums
+            </p>
+            <h2 className="m-0 text-[clamp(1.6rem,3vw,3rem)] leading-[1.02]">
+              Albums on your profile
+            </h2>
+          </div>
+          <span className="text-sm text-foreground/66">
+            Manage this section from here.
+          </span>
+        </div>
+
+        {savedAlbums.length ? (
+          <>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleSavedAlbumItems.map((album) => (
+                <article
+                  className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-4"
+                  key={album.id}
+                >
+                  {artwork(album, "aspect-square w-full")}
+                  <div className="min-w-0">
+                    <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
+                      {album.title}
+                    </h3>
+                    <p className="mt-1 overflow-hidden text-ellipsis text-foreground/76">
+                      {album.artistName}
+                    </p>
+                    {album.releaseDate ? (
+                      <p className="mt-2 text-sm text-foreground/62">
+                        {album.releaseDate}
+                      </p>
+                    ) : null}
+                  </div>
+                  <button
+                    className={ghostButtonClass}
+                    disabled={removingAlbumId === album.albumId}
+                    onClick={() => void removeSavedAlbum(album)}
+                    type="button"
+                  >
+                    {removingAlbumId === album.albumId
+                      ? "Removing..."
+                      : "Remove from Profile"}
+                  </button>
+                </article>
+              ))}
+            </div>
+            {savedAlbums.length > visibleSavedAlbumItems.length ? (
+              <button
+                className={ghostButtonClass}
+                onClick={() =>
+                  setVisibleSavedAlbums((count) => count + PROFILE_SECTION_STEP)
+                }
+                type="button"
+              >
+                Load More Albums
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
+            Add imported albums from search and they will appear here.
+          </div>
+        )}
+      </section>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
         <section className={`${cardClass} grid gap-5`}>
           <div>
@@ -261,31 +380,44 @@ export const ProfilePage = () => {
             </h2>
           </div>
           {ratings.length ? (
-            <div className="grid gap-4">
-              {ratings.map((rating) => (
-                <article
-                  className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-5 sm:grid-cols-[64px_minmax(0,1fr)_auto]"
-                  key={rating.id}
+            <>
+              <div className="grid gap-4">
+                {visibleRatingsItems.map((rating) => (
+                  <article
+                    className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-5 sm:grid-cols-[64px_minmax(0,1fr)_auto]"
+                    key={rating.id}
+                  >
+                    {artwork(rating, "h-16 w-16")}
+                    <div className="min-w-0">
+                      <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
+                        {rating.title}
+                      </h3>
+                      <p className="mt-1 text-foreground/76">
+                        {rating.artistName}
+                        {rating.albumTitle ? ` · ${rating.albumTitle}` : ""}
+                      </p>
+                      <p className="mt-3 line-clamp-3 leading-[1.6] text-foreground/82">
+                        {rating.review || "No written review yet."}
+                      </p>
+                    </div>
+                    <span className="h-fit w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold">
+                      {rating.score}/5
+                    </span>
+                  </article>
+                ))}
+              </div>
+              {ratings.length > visibleRatingsItems.length ? (
+                <button
+                  className={ghostButtonClass}
+                  onClick={() =>
+                    setVisibleRatings((count) => count + PROFILE_SECTION_STEP)
+                  }
+                  type="button"
                 >
-                  {artwork(rating, "h-16 w-16")}
-                  <div className="min-w-0">
-                    <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
-                      {rating.title}
-                    </h3>
-                    <p className="mt-1 text-foreground/76">
-                      {rating.artistName}
-                      {rating.albumTitle ? ` · ${rating.albumTitle}` : ""}
-                    </p>
-                    <p className="mt-3 line-clamp-3 leading-[1.6] text-foreground/82">
-                      {rating.review || "No written review yet."}
-                    </p>
-                  </div>
-                  <span className="h-fit w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold">
-                    {rating.score}/5
-                  </span>
-                </article>
-              ))}
-            </div>
+                  Load More Reviews
+                </button>
+              ) : null}
+            </>
           ) : (
             <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
               Your latest reviews will appear here after you rate tracks.

@@ -19,6 +19,7 @@ type CatalogItem = {
   myRating?: number;
   myReview?: string;
   myFavorite?: boolean;
+  mySavedAlbum?: boolean;
   metadata?: Record<string, unknown>;
 };
 
@@ -32,6 +33,11 @@ type Rating = {
 type Favorite = {
   id: number;
   musicId: number;
+};
+
+type SavedAlbum = {
+  id: number;
+  albumId: number;
 };
 
 type SearchResponse = {
@@ -90,6 +96,44 @@ const formatDate = (value?: string) => {
 const itemKey = (item: CatalogItem) =>
   `${item.sourceProvider}:${item.externalId}`;
 
+const Artwork = ({
+  item,
+  sizeClass = "h-[72px] w-[72px]",
+  roundedClass = "rounded-[18px]",
+}: {
+  item: Pick<CatalogItem, "artworkUrl" | "title" | "type">;
+  sizeClass?: string;
+  roundedClass?: string;
+}) => {
+  const [failedUrl, setFailedUrl] = useState<string | undefined>();
+  const shouldShowImage = item.artworkUrl && failedUrl !== item.artworkUrl;
+
+  return (
+    <div
+      className={`${sizeClass} ${roundedClass} grid shrink-0 place-items-center overflow-hidden border border-foreground/10 bg-linear-to-br from-primary/22 via-white/5 to-secondary/24 text-center text-foreground shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.04)]`}
+    >
+      {shouldShowImage ? (
+        <img
+          alt={`${item.title} cover`}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setFailedUrl(item.artworkUrl)}
+          src={item.artworkUrl}
+        />
+      ) : (
+        <div className="grid gap-1 px-2">
+          <span className="text-2xl font-bold">
+            {item.type === "album" ? "LP" : "♪"}
+          </span>
+          <span className="text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-foreground/64">
+            No cover
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const SearchPage = () => {
   const [query, setQuery] = useState("");
   const [type, setType] = useState<SearchType>("all");
@@ -105,6 +149,7 @@ export const SearchPage = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [savingRating, setSavingRating] = useState(false);
   const [savingFavorite, setSavingFavorite] = useState(false);
+  const [savingAlbum, setSavingAlbum] = useState(false);
   const [draftScore, setDraftScore] = useState<number | null>(null);
   const [draftReview, setDraftReview] = useState("");
   const requestIdRef = useRef(0);
@@ -156,19 +201,6 @@ export const SearchPage = () => {
           }
 
           setResults(payload.items);
-          setSelectedItem((current) => {
-            if (!current) {
-              return payload.items[0] ?? null;
-            }
-
-            return (
-              payload.items.find(
-                (item) => itemKey(item) === itemKey(current),
-              ) ??
-              payload.items[0] ??
-              null
-            );
-          });
           setPage(payload.page);
           setHasNextPage(payload.hasNextPage);
           setStatus("ready");
@@ -234,6 +266,38 @@ export const SearchPage = () => {
         );
         setDraftScore(nextRating?.score ?? null);
         setDraftReview(nextRating?.review ?? "");
+      })
+      .catch((error: unknown) => {
+        setMessage(readError(error));
+      });
+  }, [selectedItem?.id, selectedItem?.imported, selectedItem?.type]);
+
+  useEffect(() => {
+    if (
+      !selectedItem?.id ||
+      selectedItem.type !== "album" ||
+      !selectedItem.imported
+    ) {
+      return;
+    }
+
+    void apiGet<{ savedAlbum: SavedAlbum | null }>(
+      `/catalog/albums/saved/${selectedItem.id}`,
+    )
+      .then((payload) => {
+        const isSavedAlbum = Boolean(payload.savedAlbum);
+        setResults((current) =>
+          current.map((entry) =>
+            entry.id === selectedItem.id
+              ? { ...entry, mySavedAlbum: isSavedAlbum }
+              : entry,
+          ),
+        );
+        setSelectedItem((current) =>
+          current && current.id === selectedItem.id
+            ? { ...current, mySavedAlbum: isSavedAlbum }
+            : current,
+        );
       })
       .catch((error: unknown) => {
         setMessage(readError(error));
@@ -408,6 +472,17 @@ export const SearchPage = () => {
     );
   };
 
+  const updateItemSavedAlbum = (itemId: number, mySavedAlbum: boolean) => {
+    setResults((current) =>
+      current.map((entry) =>
+        entry.id === itemId ? { ...entry, mySavedAlbum } : entry,
+      ),
+    );
+    setSelectedItem((current) =>
+      current && current.id === itemId ? { ...current, mySavedAlbum } : current,
+    );
+  };
+
   const saveRating = async (item: CatalogItem) => {
     if (!item.id) {
       return;
@@ -493,6 +568,35 @@ export const SearchPage = () => {
     }
   };
 
+  const toggleSavedAlbum = async (item: CatalogItem) => {
+    if (!item.id) {
+      return;
+    }
+
+    setSavingAlbum(true);
+
+    try {
+      const nextSavedAlbum = !item.mySavedAlbum;
+      await apiRequest<{ savedAlbum: SavedAlbum | null }>(
+        `/catalog/albums/saved/${item.id}`,
+        {
+          method: nextSavedAlbum ? "POST" : "DELETE",
+          body: nextSavedAlbum ? JSON.stringify({}) : undefined,
+        },
+      );
+      updateItemSavedAlbum(item.id, nextSavedAlbum);
+      setMessage(
+        nextSavedAlbum
+          ? `"${item.title}" is on your profile albums.`
+          : `Removed "${item.title}" from your profile albums.`,
+      );
+    } catch (error) {
+      setMessage(readError(error));
+    } finally {
+      setSavingAlbum(false);
+    }
+  };
+
   const emptyStateCopy =
     status === "error"
       ? message
@@ -500,8 +604,27 @@ export const SearchPage = () => {
         ? shortQueryCopy
         : "No results loaded yet. Search for a title, artist, or album to begin.";
 
+  const closeModal = () => {
+    setSelectedItem(null);
+  };
+
+  useEffect(() => {
+    if (!selectedItem) {
+      return;
+    }
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeModal();
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedItem]);
+
   return (
-    <section className="mx-auto grid max-w-[1240px] gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)]">
+    <section className="mx-auto grid max-w-[1120px] gap-6">
       <article className={`${cardClass} grid content-start gap-6`}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -587,37 +710,14 @@ export const SearchPage = () => {
 
           {status !== "loading" &&
             results.map((item) => {
-              const isSelected = selectedItem
-                ? itemKey(selectedItem) === itemKey(item)
-                : false;
-
               return (
                 <button
-                  className={`grid w-full items-center gap-4 rounded-[22px] border px-4 py-4 text-left text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface md:grid-cols-[72px_minmax(0,1fr)_auto] ${
-                    isSelected
-                      ? "border-secondary bg-secondary/8"
-                      : "border-foreground/12 bg-white/4"
-                  }`}
+                  className="grid w-full items-center gap-4 rounded-[22px] border border-foreground/12 bg-white/4 px-4 py-4 text-left text-foreground transition hover:-translate-y-px hover:border-secondary/60 hover:bg-secondary/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface md:grid-cols-[72px_minmax(0,1fr)_auto]"
                   key={itemKey(item)}
                   onClick={() => setSelectedItem(item)}
                   type="button"
                 >
-                  <div className="h-[72px] w-[72px] overflow-hidden rounded-[18px]">
-                    {item.artworkUrl ? (
-                      <img
-                        alt={`${item.title} cover`}
-                        className="h-full w-full rounded-[18px] bg-white/4 object-cover"
-                        height="72"
-                        loading="lazy"
-                        src={item.artworkUrl}
-                        width="72"
-                      />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center rounded-[18px] bg-linear-to-br from-primary/28 to-secondary/28 text-[1.4rem] font-bold">
-                        {item.type === "album" ? "LP" : "♪"}
-                      </div>
-                    )}
-                  </div>
+                  <Artwork item={item} />
                   <div className="grid min-w-0 gap-1.5">
                     <div className="flex flex-wrap gap-2.5 text-[0.8rem] uppercase tracking-[0.08em] text-foreground/64">
                       <span className="text-primary">{item.type}</span>
@@ -648,6 +748,16 @@ export const SearchPage = () => {
                         Rated {item.myRating}/5
                       </span>
                     ) : null}
+                    {item.myFavorite ? (
+                      <span className="rounded-full bg-primary/16 px-3 py-2 text-[0.78rem] font-semibold text-foreground">
+                        Favorite
+                      </span>
+                    ) : null}
+                    {item.mySavedAlbum ? (
+                      <span className="rounded-full bg-primary/16 px-3 py-2 text-[0.78rem] font-semibold text-foreground">
+                        My Album
+                      </span>
+                    ) : null}
                   </div>
                 </button>
               );
@@ -673,123 +783,190 @@ export const SearchPage = () => {
         ) : null}
       </article>
 
-      <aside className={`${cardClass} grid content-start gap-6`}>
-        <p className="mb-0 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-          Selection
-        </p>
-        {selectedItem ? (
-          <>
-            <h2 className="m-0 text-[clamp(1.6rem,2.4vw,2.4rem)] leading-[1.05]">
-              {selectedItem.title}
-            </h2>
-            <p className="-mt-4 text-[1.05rem] leading-[1.7] text-foreground/82">
-              {selectedItem.artistName}
-            </p>
-            <dl className="grid gap-4">
-              <div className="rounded-[18px] bg-white/4 p-4">
-                <dt className="mb-2 text-sm text-primary">Type</dt>
-                <dd className="m-0 leading-[1.6] text-foreground/82">
-                  {selectedItem.type}
-                </dd>
-              </div>
-              <div className="rounded-[18px] bg-white/4 p-4">
-                <dt className="mb-2 text-sm text-primary">Release</dt>
-                <dd className="m-0 leading-[1.6] text-foreground/82">
-                  {formatDate(selectedItem.releaseDate)}
-                </dd>
-              </div>
-              <div className="rounded-[18px] bg-white/4 p-4">
-                <dt className="mb-2 text-sm text-primary">Provider</dt>
-                <dd className="m-0 leading-[1.6] text-foreground/82">
-                  {selectedItem.sourceProvider}
-                </dd>
-              </div>
-              <div className="rounded-[18px] bg-white/4 p-4">
-                <dt className="mb-2 text-sm text-primary">Catalog status</dt>
-                <dd className="m-0 leading-[1.6] text-foreground/82">
-                  {selectedItem.imported
-                    ? "Saved to your catalog."
-                    : "Not saved yet."}
-                </dd>
-              </div>
-              {selectedItem.albumTitle ? (
-                <div className="rounded-[18px] bg-white/4 p-4">
-                  <dt className="mb-2 text-sm text-primary">Album</dt>
-                  <dd className="m-0 leading-[1.6] text-foreground/82">
-                    {selectedItem.albumTitle}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-            <button
-              className={primaryButtonClass}
-              disabled={
-                selectedItem.imported || importingId === selectedItem.externalId
-              }
-              onClick={() => void importItem(selectedItem)}
-              type="button"
-            >
-              {selectedItem.imported
-                ? "Saved to Your Catalog"
-                : importingId === selectedItem.externalId
-                  ? "Saving..."
-                  : "Save to My Catalog"}
-            </button>
-            {selectedItem.type === "track" && selectedItem.imported ? (
-              <div className="grid gap-3 rounded-[22px] bg-white/4 p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="m-0 leading-[1.6] text-foreground/82">
-                    {selectedItem.myFavorite
-                      ? "This track is on your profile favorites."
-                      : "Pin this track to your profile favorites."}
-                  </p>
+      {selectedItem ? (
+        <div
+          aria-labelledby="catalog-detail-title"
+          aria-modal="true"
+          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/68 px-4 py-6 backdrop-blur-sm"
+          onMouseDown={closeModal}
+          role="dialog"
+        >
+          <article
+            className="grid max-h-[calc(100vh-3rem)] w-full max-w-[920px] overflow-y-auto rounded-[28px] border border-foreground/12 bg-surface p-5 shadow-[0_32px_100px_rgba(0,0,0,0.45)] sm:p-7"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+              <Artwork
+                item={selectedItem}
+                roundedClass="rounded-[24px]"
+                sizeClass="aspect-square w-full"
+              />
+              <div className="grid content-start gap-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+                      {selectedItem.type === "track" ? "Track" : "Album"} detail
+                    </p>
+                    <h2
+                      className="m-0 text-[clamp(1.9rem,4vw,3.6rem)] leading-[0.98]"
+                      id="catalog-detail-title"
+                    >
+                      {selectedItem.title}
+                    </h2>
+                    <p className="mt-3 text-[1.05rem] leading-[1.6] text-foreground/82">
+                      {selectedItem.artistName}
+                    </p>
+                  </div>
                   <button
-                    className={
-                      selectedItem.myFavorite
-                        ? ghostButtonClass
-                        : primaryButtonClass
-                    }
-                    disabled={savingFavorite}
-                    onClick={() => void toggleFavorite(selectedItem)}
+                    aria-label="Close detail"
+                    className="grid min-h-[44px] min-w-[44px] place-items-center rounded-full border border-foreground/14 bg-white/5 text-xl font-bold text-foreground transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    onClick={closeModal}
                     type="button"
                   >
-                    {savingFavorite
-                      ? "Saving..."
-                      : selectedItem.myFavorite
-                        ? "Favorited"
-                        : "Favorite"}
+                    ×
                   </button>
                 </div>
-                <p className="m-0 leading-[1.6] text-foreground/82">
-                  {selectedItem.myRating
-                    ? `Your rating: ${selectedItem.myRating}/5`
-                    : "Add a rating and review."}
-                </p>
-                <div
-                  className="flex flex-wrap gap-3"
-                  aria-label="Rate this track"
-                >
-                  {[1, 2, 3, 4, 5].map((score) => (
+
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[18px] bg-white/4 p-4">
+                    <dt className="mb-2 text-sm text-primary">Release</dt>
+                    <dd className="m-0 leading-[1.6] text-foreground/82">
+                      {formatDate(selectedItem.releaseDate)}
+                    </dd>
+                  </div>
+                  <div className="rounded-[18px] bg-white/4 p-4">
+                    <dt className="mb-2 text-sm text-primary">Catalog</dt>
+                    <dd className="m-0 leading-[1.6] text-foreground/82">
+                      {selectedItem.imported ? "Saved" : "Not saved"}
+                    </dd>
+                  </div>
+                  <div className="rounded-[18px] bg-white/4 p-4">
+                    <dt className="mb-2 text-sm text-primary">Provider</dt>
+                    <dd className="m-0 leading-[1.6] text-foreground/82">
+                      {selectedItem.sourceProvider}
+                    </dd>
+                  </div>
+                  {selectedItem.albumTitle ? (
+                    <div className="rounded-[18px] bg-white/4 p-4">
+                      <dt className="mb-2 text-sm text-primary">Album</dt>
+                      <dd className="m-0 leading-[1.6] text-foreground/82">
+                        {selectedItem.albumTitle}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className={primaryButtonClass}
+                    disabled={
+                      selectedItem.imported ||
+                      importingId === selectedItem.externalId
+                    }
+                    onClick={() => void importItem(selectedItem)}
+                    type="button"
+                  >
+                    {selectedItem.imported
+                      ? "Saved to Catalog"
+                      : importingId === selectedItem.externalId
+                        ? "Saving..."
+                        : "Save to Catalog"}
+                  </button>
+                  {selectedItem.type === "track" && selectedItem.imported ? (
                     <button
-                      aria-pressed={draftScore === score}
-                      className={`min-h-[44px] min-w-[44px] rounded-full border px-4 py-2 font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-                        draftScore === score
-                          ? "border-secondary bg-linear-to-br from-primary/20 to-secondary/28 text-foreground"
-                          : "border-foreground/12 bg-foreground/5 text-foreground"
-                      }`}
-                      disabled={savingRating}
-                      key={score}
-                      onClick={() => setDraftScore(score)}
+                      className={
+                        selectedItem.myFavorite
+                          ? ghostButtonClass
+                          : primaryButtonClass
+                      }
+                      disabled={savingFavorite}
+                      onClick={() => void toggleFavorite(selectedItem)}
                       type="button"
                     >
-                      {score}
+                      {savingFavorite
+                        ? "Saving..."
+                        : selectedItem.myFavorite
+                          ? "Favorited"
+                          : "Add Favorite"}
                     </button>
-                  ))}
+                  ) : null}
+                  {selectedItem.type === "album" && selectedItem.imported ? (
+                    <button
+                      className={
+                        selectedItem.mySavedAlbum
+                          ? ghostButtonClass
+                          : primaryButtonClass
+                      }
+                      disabled={savingAlbum}
+                      onClick={() => void toggleSavedAlbum(selectedItem)}
+                      type="button"
+                    >
+                      {savingAlbum
+                        ? "Saving..."
+                        : selectedItem.mySavedAlbum
+                          ? "In My Albums"
+                          : "Add to My Albums"}
+                    </button>
+                  ) : null}
                 </div>
+              </div>
+            </div>
+
+            {selectedItem.type === "track" && selectedItem.imported ? (
+              <section className="mt-6 grid gap-4 rounded-[24px] border border-foreground/12 bg-white/4 p-5">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="mb-2 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+                      Your review
+                    </p>
+                    <h3 className="m-0 text-[clamp(1.4rem,2.4vw,2.2rem)] leading-[1.05]">
+                      {selectedItem.myRating
+                        ? `${selectedItem.myRating}/5 saved`
+                        : "Rate this track"}
+                    </h3>
+                  </div>
+                  {selectedItem.myRating ? (
+                    <button
+                      className={ghostButtonClass}
+                      disabled={savingRating}
+                      onClick={() => void clearRating(selectedItem)}
+                      type="button"
+                    >
+                      Clear Review
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-3">
+                  <span className="text-sm text-primary">Score</span>
+                  <div
+                    aria-label="Rate this track"
+                    className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap"
+                    role="group"
+                  >
+                    {[1, 2, 3, 4, 5].map((score) => (
+                      <button
+                        aria-pressed={draftScore === score}
+                        className={`min-h-[52px] rounded-[16px] border px-4 py-2 text-lg font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface sm:min-w-[56px] ${
+                          draftScore === score
+                            ? "border-secondary bg-linear-to-br from-primary/24 to-secondary/30 text-foreground"
+                            : "border-foreground/12 bg-foreground/5 text-foreground hover:border-secondary/50"
+                        }`}
+                        disabled={savingRating}
+                        key={score}
+                        onClick={() => setDraftScore(score)}
+                        type="button"
+                      >
+                        {score}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <label className="grid gap-2" htmlFor="rating-review">
                   <span className="text-sm text-primary">Review</span>
                   <textarea
-                    className="min-h-[132px] w-full resize-y rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 leading-[1.6] text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                    className="min-h-[150px] w-full resize-y rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 leading-[1.6] text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                     disabled={savingRating}
                     id="rating-review"
                     maxLength={2000}
@@ -801,6 +978,7 @@ export const SearchPage = () => {
                     {draftReview.length}/2000 characters
                   </span>
                 </label>
+
                 <div className="flex flex-wrap gap-3">
                   <button
                     className={primaryButtonClass}
@@ -810,28 +988,19 @@ export const SearchPage = () => {
                   >
                     {savingRating ? "Saving..." : "Save Review"}
                   </button>
-                  {selectedItem.myRating ? (
-                    <button
-                      className={ghostButtonClass}
-                      disabled={savingRating}
-                      onClick={() => void clearRating(selectedItem)}
-                      type="button"
-                    >
-                      Clear
-                    </button>
-                  ) : null}
                 </div>
-              </div>
+              </section>
+            ) : selectedItem.type === "track" ? (
+              <section className="mt-6 rounded-[24px] border border-foreground/12 bg-white/4 p-5">
+                <p className="m-0 leading-[1.6] text-foreground/82">
+                  Save this track to your catalog before adding a favorite or
+                  review.
+                </p>
+              </section>
             ) : null}
-          </>
-        ) : (
-          <p className="leading-[1.6] text-foreground/82">
-            {status === "idle"
-              ? initialCopy
-              : "Pick a result to inspect its metadata and save it to your catalog."}
-          </p>
-        )}
-      </aside>
+          </article>
+        </div>
+      ) : null}
     </section>
   );
 };

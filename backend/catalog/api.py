@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from ninja import Router, Schema
 
-from catalog.models import Favorite, Music, Rating
+from catalog.models import Album, Favorite, Music, Rating, SavedAlbum
 from catalog.services import import_catalog_item, search_catalog
 
 catalog_router = Router(tags=["catalog"])
@@ -58,6 +58,19 @@ def serialize_favorite(favorite):
         "albumTitle": music.album.title if music.album_id else "",
         "artworkUrl": music.cover_url,
         "createdAt": favorite.created_at.isoformat(),
+    }
+
+
+def serialize_saved_album(saved_album):
+    album = saved_album.album
+    return {
+        "id": saved_album.id,
+        "albumId": saved_album.album_id,
+        "title": album.title,
+        "artistName": album.primary_artist.name,
+        "artworkUrl": album.cover_url,
+        "releaseDate": album.release_date,
+        "createdAt": saved_album.created_at.isoformat(),
     }
 
 
@@ -139,10 +152,15 @@ def save_favorite_view(request, music_id: int):
     if not Music.objects.filter(id=music_id).exists():
         return JsonResponse({"detail": "Track not found."}, status=404)
 
-    favorite, _ = Favorite.objects.get_or_create(
+    favorite, created = Favorite.objects.get_or_create(
         user=request.user,
         music_id=music_id,
     )
+    if created and Favorite.objects.filter(user=request.user).count() > 5:
+        favorite.delete()
+        return JsonResponse(
+            {"detail": "You can have up to 5 favorite songs."}, status=422
+        )
     favorite = (
         Favorite.objects.filter(id=favorite.id)
         .select_related("music", "music__primary_artist", "music__album")
@@ -162,6 +180,73 @@ def clear_favorite_view(request, music_id: int):
 
     Favorite.objects.filter(user=request.user, music_id=music_id).delete()
     return {"favorite": None}
+
+
+@catalog_router.get("/albums/saved")
+def list_saved_albums_view(request):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    saved_albums = (
+        SavedAlbum.objects.filter(user=request.user)
+        .select_related("album", "album__primary_artist")
+        .order_by("-created_at")[:12]
+    )
+    return {
+        "items": [serialize_saved_album(saved_album) for saved_album in saved_albums]
+    }
+
+
+@catalog_router.get("/albums/saved/{album_id}")
+def get_saved_album_view(request, album_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Album.objects.filter(id=album_id).exists():
+        return JsonResponse({"detail": "Album not found."}, status=404)
+
+    saved_album = (
+        SavedAlbum.objects.filter(user=request.user, album_id=album_id)
+        .select_related("album", "album__primary_artist")
+        .first()
+    )
+    return {"savedAlbum": serialize_saved_album(saved_album) if saved_album else None}
+
+
+@catalog_router.post("/albums/saved/{album_id}")
+def save_album_view(request, album_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Album.objects.filter(id=album_id).exists():
+        return JsonResponse({"detail": "Album not found."}, status=404)
+
+    saved_album, _ = SavedAlbum.objects.get_or_create(
+        user=request.user,
+        album_id=album_id,
+    )
+    saved_album = (
+        SavedAlbum.objects.filter(id=saved_album.id)
+        .select_related("album", "album__primary_artist")
+        .get()
+    )
+    return {"savedAlbum": serialize_saved_album(saved_album)}
+
+
+@catalog_router.delete("/albums/saved/{album_id}")
+def clear_saved_album_view(request, album_id: int):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if not Album.objects.filter(id=album_id).exists():
+        return JsonResponse({"detail": "Album not found."}, status=404)
+
+    SavedAlbum.objects.filter(user=request.user, album_id=album_id).delete()
+    return {"savedAlbum": None}
 
 
 @catalog_router.get("/ratings/{music_id}")

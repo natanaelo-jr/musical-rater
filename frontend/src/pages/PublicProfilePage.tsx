@@ -13,6 +13,7 @@ type PublicProfile = {
   isFollowing: boolean;
   stats: {
     ratings: number;
+    albums: number;
     following: number;
     followers: number;
   };
@@ -30,9 +31,19 @@ type PublicRating = {
   artworkUrl?: string;
 };
 
+type PublicSavedAlbum = {
+  id: number;
+  albumId: number;
+  title: string;
+  artistName: string;
+  artworkUrl?: string;
+  releaseDate?: string;
+};
+
 type ProfileResponse = {
   profile: PublicProfile;
   ratings: PublicRating[];
+  savedAlbums: PublicSavedAlbum[];
 };
 
 const readError = (error: unknown) => {
@@ -49,6 +60,7 @@ const primaryButtonClass =
   "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const ghostButtonClass =
   "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+const PROFILE_SECTION_STEP = 3;
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat(undefined, {
@@ -69,6 +81,10 @@ export const PublicProfilePage = () => {
   const { userId } = useParams();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [ratings, setRatings] = useState<PublicRating[]>([]);
+  const [savedAlbums, setSavedAlbums] = useState<PublicSavedAlbum[]>([]);
+  const [visibleRatings, setVisibleRatings] = useState(PROFILE_SECTION_STEP);
+  const [visibleSavedAlbums, setVisibleSavedAlbums] =
+    useState(PROFILE_SECTION_STEP);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -89,16 +105,23 @@ export const PublicProfilePage = () => {
       .then((payload) => {
         setProfile(payload.profile);
         setRatings(payload.ratings);
+        setSavedAlbums(payload.savedAlbums);
+        setVisibleRatings(PROFILE_SECTION_STEP);
+        setVisibleSavedAlbums(PROFILE_SECTION_STEP);
         setStatus("ready");
         setMessage("");
       })
       .catch((error: unknown) => {
         setProfile(null);
         setRatings([]);
+        setSavedAlbums([]);
         setStatus("error");
         setMessage(readError(error));
       });
   }, [userId]);
+
+  const visibleRatingsItems = ratings.slice(0, visibleRatings);
+  const visibleSavedAlbumItems = savedAlbums.slice(0, visibleSavedAlbums);
 
   const setFollowing = async (isFollowing: boolean) => {
     if (!profile) {
@@ -219,8 +242,8 @@ export const PublicProfilePage = () => {
         <dl className="grid gap-3 sm:grid-cols-3">
           {[
             ["Ratings", profile.stats.ratings],
+            ["Albums", profile.stats.albums],
             ["Followers", profile.stats.followers],
-            ["Following", profile.stats.following],
           ].map(([label, value]) => (
             <div className="rounded-[20px] bg-white/4 p-5" key={label}>
               <dt className="mb-2 text-sm text-primary">{label}</dt>
@@ -229,6 +252,71 @@ export const PublicProfilePage = () => {
           ))}
         </dl>
       </article>
+
+      <section className={`${cardClass} grid gap-5`}>
+        <div>
+          <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+            Saved albums
+          </p>
+          <h2 className="m-0 text-[clamp(1.6rem,3vw,3rem)] leading-[1.02]">
+            Albums on {profile.displayName}'s profile
+          </h2>
+        </div>
+
+        {savedAlbums.length ? (
+          <>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleSavedAlbumItems.map((album) => (
+                <article
+                  className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-4"
+                  key={album.id}
+                >
+                  <div className="grid aspect-square w-full place-items-center overflow-hidden rounded-[18px] bg-linear-to-br from-primary/24 to-secondary/24 text-3xl font-bold">
+                    {album.artworkUrl ? (
+                      <img
+                        alt={`${album.title} cover`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        src={album.artworkUrl}
+                      />
+                    ) : (
+                      <span>LP</span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
+                      {album.title}
+                    </h3>
+                    <p className="mt-1 overflow-hidden text-ellipsis text-foreground/76">
+                      {album.artistName}
+                    </p>
+                    {album.releaseDate ? (
+                      <p className="mt-2 text-sm text-foreground/62">
+                        {album.releaseDate}
+                      </p>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+            {savedAlbums.length > visibleSavedAlbumItems.length ? (
+              <button
+                className={ghostButtonClass}
+                onClick={() =>
+                  setVisibleSavedAlbums((count) => count + PROFILE_SECTION_STEP)
+                }
+                type="button"
+              >
+                Load More Albums
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
+            No saved albums yet.
+          </div>
+        )}
+      </section>
 
       <section className={`${cardClass} grid gap-5`}>
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -243,55 +331,68 @@ export const PublicProfilePage = () => {
         </div>
 
         {ratings.length ? (
-          <div className="grid gap-4">
-            {ratings.map((rating) => (
-              <article
-                className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-5 md:grid-cols-[76px_minmax(0,1fr)_auto]"
-                key={rating.id}
+          <>
+            <div className="grid gap-4">
+              {visibleRatingsItems.map((rating) => (
+                <article
+                  className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-5 md:grid-cols-[76px_minmax(0,1fr)_auto]"
+                  key={rating.id}
+                >
+                  <div className="h-[76px] w-[76px] overflow-hidden rounded-[18px] bg-linear-to-br from-primary/24 to-secondary/24">
+                    {rating.artworkUrl ? (
+                      <img
+                        alt={`${rating.title} cover`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        src={rating.artworkUrl}
+                      />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center text-2xl font-bold">
+                        ♪
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
+                      {rating.title}
+                    </h3>
+                    <p className="mt-1 text-foreground/76">
+                      {rating.artistName}
+                      {rating.albumTitle ? ` · ${rating.albumTitle}` : ""}
+                    </p>
+                    {rating.review ? (
+                      <p className="mt-4 leading-[1.7] text-foreground/86">
+                        {rating.review}
+                      </p>
+                    ) : (
+                      <p className="mt-4 leading-[1.7] text-foreground/62">
+                        No written review yet.
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid content-start gap-2 md:justify-items-end">
+                    <span className="w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold text-foreground">
+                      {rating.score}/5
+                    </span>
+                    <time className="text-sm text-foreground/62">
+                      {formatDate(rating.updatedAt)}
+                    </time>
+                  </div>
+                </article>
+              ))}
+            </div>
+            {ratings.length > visibleRatingsItems.length ? (
+              <button
+                className={ghostButtonClass}
+                onClick={() =>
+                  setVisibleRatings((count) => count + PROFILE_SECTION_STEP)
+                }
+                type="button"
               >
-                <div className="h-[76px] w-[76px] overflow-hidden rounded-[18px] bg-linear-to-br from-primary/24 to-secondary/24">
-                  {rating.artworkUrl ? (
-                    <img
-                      alt={`${rating.title} cover`}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      src={rating.artworkUrl}
-                    />
-                  ) : (
-                    <div className="grid h-full w-full place-items-center text-2xl font-bold">
-                      ♪
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
-                    {rating.title}
-                  </h3>
-                  <p className="mt-1 text-foreground/76">
-                    {rating.artistName}
-                    {rating.albumTitle ? ` · ${rating.albumTitle}` : ""}
-                  </p>
-                  {rating.review ? (
-                    <p className="mt-4 leading-[1.7] text-foreground/86">
-                      {rating.review}
-                    </p>
-                  ) : (
-                    <p className="mt-4 leading-[1.7] text-foreground/62">
-                      No written review yet.
-                    </p>
-                  )}
-                </div>
-                <div className="grid content-start gap-2 md:justify-items-end">
-                  <span className="w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold text-foreground">
-                    {rating.score}/5
-                  </span>
-                  <time className="text-sm text-foreground/62">
-                    {formatDate(rating.updatedAt)}
-                  </time>
-                </div>
-              </article>
-            ))}
-          </div>
+                Load More Reviews
+              </button>
+            ) : null}
+          </>
         ) : (
           <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
             No reviews yet.

@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from catalog.models import Artist, Music, Rating
+from catalog.models import Album, Artist, Music, Rating, SavedAlbum
 from social.models import Follow
 
 
@@ -111,6 +111,13 @@ class SocialApiTests(TestCase):
             source_provider="musicbrainz",
             external_id="recording-1",
         )
+        album = Album.objects.create(
+            title="Hamilton",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="release-1",
+        )
+        SavedAlbum.objects.create(user=self.other_user, album=album)
         Rating.objects.create(
             user=self.other_user,
             music=music,
@@ -125,7 +132,9 @@ class SocialApiTests(TestCase):
         self.assertEqual(payload["profile"]["username"], "critic")
         self.assertEqual(payload["profile"]["isFollowing"], True)
         self.assertEqual(payload["profile"]["stats"]["ratings"], 1)
+        self.assertEqual(payload["profile"]["stats"]["albums"], 1)
         self.assertEqual(payload["profile"]["stats"]["followers"], 1)
+        self.assertEqual(payload["savedAlbums"][0]["title"], "Hamilton")
         self.assertEqual(payload["ratings"][0]["title"], "My Shot")
         self.assertEqual(
             payload["ratings"][0]["review"],

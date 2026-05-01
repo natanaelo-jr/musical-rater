@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from catalog.models import Album, Artist, Favorite, Music, Rating
+from catalog.models import Album, Artist, Favorite, Music, Rating, SavedAlbum
 
 
 class CatalogApiTests(TestCase):
@@ -269,6 +269,87 @@ class CatalogApiTests(TestCase):
         self.assertIsNone(response.json()["favorite"])
         self.assertEqual(Favorite.objects.count(), 0)
 
+    def test_save_favorite_rejects_more_than_five_songs(self):
+        self.client.force_login(self.user)
+
+        artist = Artist.objects.create(
+            name="Favorite Artist",
+            source_provider="musicbrainz",
+            external_id="artist-favorite-limit",
+        )
+        for index in range(5):
+            music = Music.objects.create(
+                title=f"Song {index}",
+                primary_artist=artist,
+                source_provider="musicbrainz",
+                external_id=f"favorite-song-{index}",
+            )
+            Favorite.objects.create(user=self.user, music=music)
+
+        extra_music = Music.objects.create(
+            title="Song extra",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="favorite-song-extra",
+        )
+        response = self.client.post(
+            f"/api/catalog/favorites/{extra_music.id}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["detail"], "You can have up to 5 favorite songs."
+        )
+        self.assertEqual(Favorite.objects.filter(user=self.user).count(), 5)
+
+    def test_save_album_creates_user_saved_album(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+
+        response = self.client.post(
+            f"/api/catalog/albums/saved/{album.id}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["savedAlbum"]["title"], "Hamilton")
+        self.assertTrue(SavedAlbum.objects.filter(user=self.user, album=album).exists())
+
+    def test_get_saved_album_returns_current_state(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+        SavedAlbum.objects.create(user=self.user, album=album)
+
+        response = self.client.get(f"/api/catalog/albums/saved/{album.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["savedAlbum"]["albumId"], album.id)
+
+    def test_list_saved_albums_returns_recent_user_albums(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+        SavedAlbum.objects.create(user=self.user, album=album)
+
+        response = self.client.get("/api/catalog/albums/saved")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["title"], "Hamilton")
+        self.assertEqual(
+            response.json()["items"][0]["artistName"], "Lin-Manuel Miranda"
+        )
+
+    def test_clear_saved_album_removes_user_album(self):
+        self.client.force_login(self.user)
+        album = self._create_album()
+        SavedAlbum.objects.create(user=self.user, album=album)
+
+        response = self.client.delete(f"/api/catalog/albums/saved/{album.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["savedAlbum"])
+        self.assertEqual(SavedAlbum.objects.count(), 0)
+
     def _create_music(self):
         artist = Artist.objects.create(
             name="Lin-Manuel Miranda",
@@ -280,6 +361,20 @@ class CatalogApiTests(TestCase):
             primary_artist=artist,
             source_provider="musicbrainz",
             external_id="recording-1",
+        )
+
+    def _create_album(self):
+        artist = Artist.objects.create(
+            name="Lin-Manuel Miranda",
+            source_provider="musicbrainz",
+            external_id="artist-album-1",
+        )
+        return Album.objects.create(
+            title="Hamilton",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="release-1",
+            release_date="2015-09-25",
         )
 
 
