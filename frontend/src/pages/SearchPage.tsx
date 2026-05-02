@@ -2,7 +2,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, apiGet, apiRequest } from "../lib/api";
+import { ApiError, apiRequest } from "../lib/api";
 
 type SearchType = "all" | "track" | "album";
 
@@ -19,32 +19,9 @@ type CatalogItem = {
   durationSeconds?: number;
   imported: boolean;
   myRating?: number;
+  myFavorite?: boolean;
+  mySavedAlbum?: boolean;
   metadata?: Record<string, unknown>;
-};
-
-type Rating = {
-  id: number;
-  musicId: number;
-  score: number;
-  review: string;
-};
-
-type AlbumRating = {
-  id: number;
-  albumId: number;
-  score: number;
-  review: string;
-  updatedAt: string;
-};
-
-type Favorite = {
-  id: number;
-  musicId: number;
-};
-
-type SavedAlbum = {
-  id: number;
-  albumId: number;
 };
 
 type SearchResponse = {
@@ -53,23 +30,13 @@ type SearchResponse = {
   hasNextPage: boolean;
 };
 
-const filters: Array<{ label: string; value: SearchType }> = [
-  { label: "All", value: "all" },
-  { label: "Tracks", value: "track" },
-  { label: "Albums", value: "album" },
+const filters: Array<{ value: SearchType }> = [
+  { value: "all" },
+  { value: "track" },
+  { value: "album" },
 ];
 
-const initialCopy =
-  "Search by title, artist, album, or show, then save what belongs in your catalog.";
 const shortQueryCopy = "Use at least 2 characters to search the catalog.";
-const cardClass =
-  "rounded-[28px] border border-foreground/12 bg-surface p-8 shadow-panel backdrop-blur-[20px]";
-const chipClass =
-  "rounded-full border px-4 py-2.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
-const primaryButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
-const ghostButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 const readError = (error: unknown) => {
   if (error instanceof ApiError) {
@@ -157,36 +124,15 @@ export const SearchPage = () => {
 
   const trimmedQuery = query.trim();
 
-  const resetSearchState = (
-    nextStatus: "idle" | "error",
-    nextMessage: string,
-  ) => {
-    setResults([]);
-    setSelectedItem(null);
-    setHasNextPage(false);
-    setPage(1);
-    setStatus(nextStatus);
-    setMessage(nextMessage);
-  };
-
   const handleQueryChange = (value: string) => {
-    const nextTrimmedQuery = value.trim();
-
     setQuery(value);
-
-    if (nextTrimmedQuery.length === 0) {
-      resetSearchState("idle", initialCopy);
-      return;
-    }
-
-    if (nextTrimmedQuery.length < 2) {
-      resetSearchState("error", shortQueryCopy);
-    }
   };
 
   const handleTypeChange = (nextType: SearchType) => {
     setType(nextType);
+  };
 
+  useEffect(() => {
     if (trimmedQuery.length === 0) {
       setResults([]);
       setSelectedItem(null);
@@ -199,21 +145,22 @@ export const SearchPage = () => {
       setResults([]);
       setSelectedItem(null);
       setStatus("error");
-      setMessage(t("min_chars_search"));
+      setMessage(t("min_chars_search", { defaultValue: shortQueryCopy }));
       return;
     }
 
+    const controller = new AbortController();
     setStatus("loading");
-    setMessage(t("searching_catalog"));
+    setMessage(
+      t("searching_catalog", {
+        defaultValue: `Searching for "${trimmedQuery}"...`,
+        query: trimmedQuery,
+      }),
+    );
+    setResults([]);
+    setSelectedItem(null);
 
     const timeoutId = window.setTimeout(() => {
-      setStatus("loading");
-      setMessage(`Searching for "${trimmedQuery}"...`);
-      setResults([]);
-      setSelectedItem(null);
-      setHasNextPage(false);
-      setPage(1);
-
       void apiRequest<SearchResponse>(
         `/catalog/search?q=${encodeURIComponent(trimmedQuery)}&type=${type}&page=1`,
         {
@@ -222,6 +169,10 @@ export const SearchPage = () => {
         },
       )
         .then((payload) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+
           startTransition(() => {
             setResults(payload.items);
             setSelectedItem((current) => {
@@ -242,22 +193,27 @@ export const SearchPage = () => {
 
             setMessage(
               payload.items.length === 1
-                ? t("results_found_singular")
+                ? t("results_found_singular", {
+                    defaultValue: "1 result found.",
+                  })
                 : payload.items.length > 1
-                  ? t("results_found", { count: payload.items.length })
-                  : t("no_matches_found"),
+                  ? t("results_found", {
+                      count: payload.items.length,
+                      defaultValue: "{{count}} results found.",
+                    })
+                  : t("no_matches_found", {
+                      defaultValue: "No matches found.",
+                    }),
             );
           });
         })
         .catch((error: unknown) => {
-          if (requestId !== requestIdRef.current || controller.signal.aborted) {
+          if (controller.signal.aborted) {
             return;
           }
 
           setResults([]);
           setSelectedItem(null);
-          setHasNextPage(false);
-          setPage(1);
           setStatus("error");
           setMessage(readError(error));
         });
@@ -267,7 +223,7 @@ export const SearchPage = () => {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [query, type, t]);
+  }, [startTransition, t, trimmedQuery, type]);
 
   const importItem = async (item: CatalogItem) => {
     setImportingId(item.externalId);
@@ -383,7 +339,7 @@ export const SearchPage = () => {
             <span>{t("search_query_label")}</span>
             <input
               id="catalog-search"
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => handleQueryChange(event.target.value)}
               placeholder={t("search_placeholder_catalog")}
               type="search"
               value={query}
@@ -409,7 +365,7 @@ export const SearchPage = () => {
                     type === filter.value ? "filter-chip active" : "filter-chip"
                   }
                   key={filter.value}
-                  onClick={() => setType(filter.value)}
+                  onClick={() => handleTypeChange(filter.value)}
                   role="tab"
                   type="button"
                 >
@@ -500,10 +456,16 @@ export const SearchPage = () => {
             })}
 
             {status === "loading" || isPending ? (
-              <div className="result-placeholder">{t("loading_results")}</div>
+              <div className="result-placeholder">
+                {t("loading_results", { defaultValue: "Loading results..." })}
+              </div>
             ) : null}
             {status === "ready" && results.length === 0 ? (
-              <div className="result-placeholder">{t("no_matches_query")}</div>
+              <div className="result-placeholder">
+                {t("no_matches_query", {
+                  defaultValue: "No matches for this query.",
+                })}
+              </div>
             ) : null}
           </div>
       </article>
@@ -512,6 +474,11 @@ export const SearchPage = () => {
         <p className="eyebrow">{t("selection_eyebrow")}</p>
         {selectedItem ? (
           <>
+            <Artwork
+              item={selectedItem}
+              roundedClass="rounded-[24px]"
+              sizeClass="h-[160px] w-[160px]"
+            />
             <h2>{selectedItem.title}</h2>
             <p className="lede compact">{selectedItem.artistName}</p>{" "}
             <dl className="detail-grid">

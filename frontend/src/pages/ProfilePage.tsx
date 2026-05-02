@@ -232,6 +232,7 @@ export const ProfilePage = () => {
           >
             {submitting ? t("saving_profile") : t("save_profile")}
           </button>
+        </form>
 
       <article className={cardClass}>
         <dl className="grid gap-3 sm:grid-cols-3">
@@ -494,5 +495,6 @@ export const ProfilePage = () => {
         </aside>
       </div>
     </section>
+    </main>
   );
 };

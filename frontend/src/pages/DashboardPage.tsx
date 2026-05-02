@@ -187,6 +187,6 @@ export const DashboardPage = () => {
           </div>
         </dl>
       </aside>
-    </section>
+    </main>
   );
 };
