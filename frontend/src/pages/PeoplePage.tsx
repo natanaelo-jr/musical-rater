@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
+import { useTranslation } from "react-i18next";
 import { ApiError, apiGet, apiRequest } from "../lib/api";
 
 type UserSummary = {
@@ -21,12 +21,8 @@ const readError = (error: unknown) => {
   return "Unexpected error. Please try again.";
 };
 
-const primaryButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
-const ghostButtonClass =
-  "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
-
 export const PeoplePage = () => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [people, setPeople] = useState<UserSummary[]>([]);
   const [status, setStatus] = useState<SearchStatus>("idle");
@@ -35,10 +31,8 @@ export const PeoplePage = () => {
   );
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const handleQueryChange = (value: string) => {
-    const trimmedQuery = value.trim();
-
-    setQuery(value);
+  useEffect(() => {
+    const trimmedQuery = query.trim();
 
     if (!trimmedQuery) {
       setPeople([]);
@@ -56,14 +50,6 @@ export const PeoplePage = () => {
 
     setStatus("loading");
     setMessage("Looking for listeners...");
-  };
-
-  useEffect(() => {
-    const trimmedQuery = query.trim();
-
-    if (!trimmedQuery || trimmedQuery.length < 2) {
-      return;
-    }
 
     const timeoutId = window.setTimeout(() => {
       void apiGet<{ items: UserSummary[] }>(
@@ -132,78 +118,56 @@ export const PeoplePage = () => {
   };
 
   return (
-    <section className="mx-auto grid max-w-[1120px] gap-6">
-      <article className="rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+    <main className="shell">
+      <section className="card people-panel">
+        <div className="section-header">
           <div>
-            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              People
-            </p>
-            <h1 className="m-0 text-[clamp(2rem,4vw,4rem)] leading-[0.98]">
-              Find listeners to follow.
-            </h1>
+            <p className="eyebrow">{t("people_eyebrow")}</p>
+            <h1>{t("people_title")}</h1>
           </div>
-          <Link className="font-semibold text-primary" to="/app">
-            Back to dashboard
+          <Link className="ghost-button button-link" to="/app">
+            {t("back_to_dashboard")}
           </Link>
         </div>
 
-        <label className="mt-8 grid gap-2.5" htmlFor="people-search">
-          <span className="text-sm text-primary">Search listeners</span>
+        <label className="search-input-wrap" htmlFor="people-search">
+          <span>{t("search_listeners_label")}</span>
           <input
-            className="w-full rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             id="people-search"
-            onChange={(event) => handleQueryChange(event.target.value)}
-            placeholder="Search by name, username, or email"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("search_listeners_placeholder")}
             type="search"
             value={query}
           />
         </label>
 
-        <p
-          className={`mt-4 leading-[1.6] ${
-            status === "error" ? "text-danger" : "text-foreground/82"
-          }`}
-        >
-          {message}
+        <p className={status === "error" ? "form-error" : "support-copy"}>
+          {status === "idle" && !query ? t("search_listeners_help") : message}
         </p>
 
-        <div className="mt-6 grid gap-4">
+        <div className="people-list">
           {people.map((person) => (
-            <article
-              className="grid gap-4 rounded-[22px] border border-foreground/12 bg-white/4 p-5 md:grid-cols-[72px_minmax(0,1fr)_auto] md:items-center"
-              key={person.id}
-            >
-              <div className="grid h-[72px] w-[72px] place-items-center overflow-hidden rounded-[18px] bg-linear-to-br from-primary/28 to-secondary/28 text-xl font-bold text-foreground">
+            <article className="person-card" key={person.id}>
+              <div className="person-avatar">
                 {person.avatarUrl ? (
                   <img
                     alt={`${person.displayName} avatar`}
-                    className="h-full w-full object-cover"
                     src={person.avatarUrl}
                   />
                 ) : (
                   <span>{person.displayName.slice(0, 1).toUpperCase()}</span>
                 )}
               </div>
-              <div className="grid gap-1.5">
-                <Link
-                  className="w-fit font-bold text-foreground no-underline hover:text-primary"
-                  to={`/app/people/${person.id}`}
-                >
-                  {person.displayName}
-                </Link>
-                <span className="text-foreground/72">
+              <div className="person-copy">
+                <strong>{person.displayName}</strong>
+                <span>
                   {person.username ? `@${person.username}` : "No username yet"}
                 </span>
-                {person.bio ? (
-                  <p className="m-0 leading-[1.6] text-foreground/82">
-                    {person.bio}
-                  </p>
-                ) : null}
+                {person.bio ? <p>{person.bio}</p> : null}
               </div>
               <button
                 className={
-                  person.isFollowing ? ghostButtonClass : primaryButtonClass
+                  person.isFollowing ? "ghost-button" : "primary-button"
                 }
                 disabled={updatingId === person.id}
                 onClick={() =>
@@ -223,12 +187,10 @@ export const PeoplePage = () => {
           ))}
 
           {status === "loading" ? (
-            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-              Searching listeners...
-            </div>
+            <div className="result-placeholder">Searching listeners...</div>
           ) : null}
         </div>
-      </article>
-    </section>
+      </section>
+    </main>
   );
 };

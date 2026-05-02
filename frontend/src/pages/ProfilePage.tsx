@@ -1,8 +1,9 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-
-import { toFieldErrors } from "../auth/authErrors";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/useAuth";
+import { toFieldErrors } from "../auth/authErrors";
 import { focusFirstFieldError } from "../components/formUtils";
 import { Field, TextAreaField } from "../components/forms";
 import { RatingCommentsSection } from "../components/RatingCommentsSection";
@@ -77,6 +78,7 @@ const artwork = (
 );
 
 export const ProfilePage = () => {
+  const { t } = useTranslation();
   const auth = useAuth();
   const user = auth.user;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
@@ -182,45 +184,56 @@ export const ProfilePage = () => {
   };
 
   return (
-    <section className="mx-auto grid max-w-[1120px] gap-6">
-      <article className={`${cardClass} grid gap-7`}>
-        <div className="grid gap-6 lg:grid-cols-[128px_minmax(0,1fr)_auto] lg:items-start">
-          <div className="grid h-32 w-32 place-items-center overflow-hidden rounded-[26px] bg-linear-to-br from-primary/28 to-secondary/28 text-4xl font-bold">
-            {user.avatarUrl ? (
-              <img
-                alt={`${user.displayName} avatar`}
-                className="h-full w-full object-cover"
-                src={user.avatarUrl}
-              />
-            ) : (
-              <span>{initials(user.displayName || user.email)}</span>
-            )}
+    <main className="shell">
+      <section className="card profile-card">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">{t("profile_eyebrow")}</p>
+            <h1>{t("profile_title")}</h1>
           </div>
-
-          <div className="min-w-0">
-            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              My profile
-            </p>
-            <h1 className="m-0 overflow-hidden text-ellipsis text-[clamp(2.2rem,5vw,5rem)] leading-[0.96]">
-              {user.displayName || "Your profile"}
-            </h1>
-            <p className="mt-3 text-[1.05rem] text-foreground/72">
-              {user.username ? `@${user.username}` : user.email}
-            </p>
-            <p className="mt-5 max-w-[48rem] text-[1.05rem] leading-[1.7] text-foreground/84">
-              {user.bio || "Add a short bio so people understand your taste."}
-            </p>
-          </div>
-
+          <Link className="ghost-button button-link" to="/app">
+            {t("back_to_dashboard")}
+          </Link>
+        </div>
+        <form className="stack" onSubmit={submit}>
+          <Field
+            error={errors.display_name}
+            label={t("display_name_label")}
+            onChange={setDisplayName}
+            value={displayName}
+          />
+          <Field
+            error={errors.username}
+            label={t("username_label")}
+            onChange={setUsername}
+            placeholder="stage-door-fan"
+            value={username}
+          />
+          <Field
+            error={errors.avatar_url}
+            label={t("avatar_url_label")}
+            onChange={setAvatarUrl}
+            placeholder="https://example.com/avatar.jpg"
+            value={avatarUrl}
+          />
+          <TextAreaField
+            error={errors.bio}
+            label={t("bio_label")}
+            onChange={setBio}
+            placeholder={t("bio_placeholder")}
+            value={bio}
+          />
+          {errors.form ? <p className="form-error">{errors.form}</p> : null}
+          {success ? <p className="form-success">{success}</p> : null}
           <button
             className={showSettings ? ghostButtonClass : primaryButtonClass}
             onClick={() => setShowSettings((current) => !current)}
             type="button"
           >
-            {showSettings ? "Close Settings" : "Profile Settings"}
+            {submitting ? t("saving_profile") : t("save_profile")}
           </button>
-        </div>
 
+      <article className={cardClass}>
         <dl className="grid gap-3 sm:grid-cols-3">
           {[
             ["Reviews", reviews.length],

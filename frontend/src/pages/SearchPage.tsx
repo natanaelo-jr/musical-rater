@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { ApiError, apiGet, apiRequest } from "../lib/api";
 
@@ -17,9 +19,6 @@ type CatalogItem = {
   durationSeconds?: number;
   imported: boolean;
   myRating?: number;
-  myReview?: string;
-  myFavorite?: boolean;
-  mySavedAlbum?: boolean;
   metadata?: Record<string, unknown>;
 };
 
@@ -143,6 +142,7 @@ const Artwork = ({
 };
 
 export const SearchPage = () => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [type, setType] = useState<SearchType>("all");
   const [results, setResults] = useState<CatalogItem[]>([]);
@@ -150,17 +150,10 @@ export const SearchPage = () => {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
   );
-  const [message, setMessage] = useState(initialCopy);
-  const [page, setPage] = useState(1);
-  const [hasNextPage, setHasNextPage] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
   const [importingId, setImportingId] = useState<string | null>(null);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [savingRating, setSavingRating] = useState(false);
-  const [savingFavorite, setSavingFavorite] = useState(false);
-  const [savingAlbum, setSavingAlbum] = useState(false);
-  const [draftScore, setDraftScore] = useState<number | null>(null);
-  const [draftReview, setDraftReview] = useState("");
-  const requestIdRef = useRef(0);
 
   const trimmedQuery = query.trim();
 
@@ -195,23 +188,24 @@ export const SearchPage = () => {
     setType(nextType);
 
     if (trimmedQuery.length === 0) {
-      resetSearchState("idle", initialCopy);
+      setResults([]);
+      setSelectedItem(null);
+      setStatus("idle");
+      setMessage("");
       return;
     }
 
     if (trimmedQuery.length < 2) {
-      resetSearchState("error", shortQueryCopy);
-    }
-  };
-
-  useEffect(() => {
-    const requestId = ++requestIdRef.current;
-
-    if (trimmedQuery.length === 0 || trimmedQuery.length < 2) {
+      setResults([]);
+      setSelectedItem(null);
+      setStatus("error");
+      setMessage(t("min_chars_search"));
       return;
     }
 
-    const controller = new AbortController();
+    setStatus("loading");
+    setMessage(t("searching_catalog"));
+
     const timeoutId = window.setTimeout(() => {
       setStatus("loading");
       setMessage(`Searching for "${trimmedQuery}"...`);
@@ -228,19 +222,32 @@ export const SearchPage = () => {
         },
       )
         .then((payload) => {
-          if (requestId !== requestIdRef.current || controller.signal.aborted) {
-            return;
-          }
+          startTransition(() => {
+            setResults(payload.items);
+            setSelectedItem((current) => {
+              if (!current) {
+                return payload.items[0] ?? null;
+              }
+              return (
+                payload.items.find(
+                  (item) =>
+                    item.externalId === current.externalId &&
+                    item.sourceProvider === current.sourceProvider,
+                ) ??
+                payload.items[0] ??
+                null
+              );
+            });
+            setStatus("ready");
 
-          setResults(payload.items);
-          setPage(payload.page);
-          setHasNextPage(payload.hasNextPage);
-          setStatus("ready");
-          setMessage(
-            payload.items.length
-              ? `Showing ${payload.items.length} result${payload.items.length === 1 ? "" : "s"} for ${type === "all" ? "all matches" : type === "track" ? "tracks" : "albums"}.${payload.hasNextPage ? " Load more to keep browsing." : ""}`
-              : `No matches for "${trimmedQuery}". Try a shorter title, another artist, or switch filters.`,
-          );
+            setMessage(
+              payload.items.length === 1
+                ? t("results_found_singular")
+                : payload.items.length > 1
+                  ? t("results_found", { count: payload.items.length })
+                  : t("no_matches_found"),
+            );
+          });
         })
         .catch((error: unknown) => {
           if (requestId !== requestIdRef.current || controller.signal.aborted) {
@@ -260,155 +267,7 @@ export const SearchPage = () => {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [trimmedQuery, type]);
-
-  useEffect(() => {
-    if (
-      !selectedItem?.id ||
-      selectedItem.type !== "track" ||
-      !selectedItem.imported
-    ) {
-      return;
-    }
-
-    void apiGet<{ rating: Rating | null }>(
-      `/catalog/ratings/${selectedItem.id}`,
-    )
-      .then((payload) => {
-        const nextRating = payload.rating;
-        setResults((current) =>
-          current.map((entry) =>
-            entry.id === selectedItem.id
-              ? {
-                  ...entry,
-                  myRating: nextRating?.score,
-                  myReview: nextRating?.review ?? "",
-                }
-              : entry,
-          ),
-        );
-        setSelectedItem((current) =>
-          current && current.id === selectedItem.id
-            ? {
-                ...current,
-                myRating: nextRating?.score,
-                myReview: nextRating?.review ?? "",
-              }
-            : current,
-        );
-        setDraftScore(nextRating?.score ?? null);
-        setDraftReview(nextRating?.review ?? "");
-      })
-      .catch((error: unknown) => {
-        setMessage(readError(error));
-      });
-  }, [selectedItem?.id, selectedItem?.imported, selectedItem?.type]);
-
-  useEffect(() => {
-    if (
-      !selectedItem?.id ||
-      selectedItem.type !== "album" ||
-      !selectedItem.imported
-    ) {
-      return;
-    }
-
-    void apiGet<{ savedAlbum: SavedAlbum | null }>(
-      `/catalog/albums/saved/${selectedItem.id}`,
-    )
-      .then((payload) => {
-        const isSavedAlbum = Boolean(payload.savedAlbum);
-        setResults((current) =>
-          current.map((entry) =>
-            entry.id === selectedItem.id
-              ? { ...entry, mySavedAlbum: isSavedAlbum }
-              : entry,
-          ),
-        );
-        setSelectedItem((current) =>
-          current && current.id === selectedItem.id
-            ? { ...current, mySavedAlbum: isSavedAlbum }
-            : current,
-        );
-      })
-      .catch((error: unknown) => {
-        setMessage(readError(error));
-      });
-  }, [selectedItem?.id, selectedItem?.imported, selectedItem?.type]);
-
-  useEffect(() => {
-    if (
-      !selectedItem?.id ||
-      selectedItem.type !== "album" ||
-      !selectedItem.imported
-    ) {
-      return;
-    }
-
-    void apiGet<{ rating: AlbumRating | null }>(
-      `/catalog/album-ratings/${selectedItem.id}`,
-    )
-      .then((payload) => {
-        const nextRating = payload.rating;
-        setResults((current) =>
-          current.map((entry) =>
-            entry.id === selectedItem.id
-              ? {
-                  ...entry,
-                  myRating: nextRating?.score,
-                  myReview: nextRating?.review ?? "",
-                }
-              : entry,
-          ),
-        );
-        setSelectedItem((current) =>
-          current && current.id === selectedItem.id
-            ? {
-                ...current,
-                myRating: nextRating?.score,
-                myReview: nextRating?.review ?? "",
-              }
-            : current,
-        );
-        setDraftScore(nextRating?.score ?? null);
-        setDraftReview(nextRating?.review ?? "");
-      })
-      .catch((error: unknown) => {
-        setMessage(readError(error));
-      });
-  }, [selectedItem?.id, selectedItem?.imported, selectedItem?.type]);
-
-  useEffect(() => {
-    if (
-      !selectedItem?.id ||
-      selectedItem.type !== "track" ||
-      !selectedItem.imported
-    ) {
-      return;
-    }
-
-    void apiGet<{ favorite: Favorite | null }>(
-      `/catalog/favorites/${selectedItem.id}`,
-    )
-      .then((payload) => {
-        const isFavorite = Boolean(payload.favorite);
-        setResults((current) =>
-          current.map((entry) =>
-            entry.id === selectedItem.id
-              ? { ...entry, myFavorite: isFavorite }
-              : entry,
-          ),
-        );
-        setSelectedItem((current) =>
-          current && current.id === selectedItem.id
-            ? { ...current, myFavorite: isFavorite }
-            : current,
-        );
-      })
-      .catch((error: unknown) => {
-        setMessage(readError(error));
-      });
-  }, [selectedItem?.id, selectedItem?.imported, selectedItem?.type]);
+  }, [query, type, t]);
 
   const importItem = async (item: CatalogItem) => {
     setImportingId(item.externalId);
@@ -453,137 +312,34 @@ export const SearchPage = () => {
     }
   };
 
-  const loadMore = async () => {
-    if (!hasNextPage || isLoadingMore || trimmedQuery.length < 2) {
-      return;
-    }
-
-    const nextPage = page + 1;
-    const requestId = ++requestIdRef.current;
-    setIsLoadingMore(true);
-    setMessage(`Loading more results for "${trimmedQuery}"...`);
-
-    try {
-      const payload = await apiRequest<SearchResponse>(
-        `/catalog/search?q=${encodeURIComponent(trimmedQuery)}&type=${type}&page=${nextPage}`,
-        {
-          method: "GET",
-        },
-      );
-
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
-
-      setResults((current) => {
-        const merged = [...current];
-        const seen = new Set(current.map(itemKey));
-
-        for (const item of payload.items) {
-          const key = itemKey(item);
-          if (!seen.has(key)) {
-            merged.push(item);
-            seen.add(key);
-          }
-        }
-
-        return merged;
-      });
-      setPage(payload.page);
-      setHasNextPage(payload.hasNextPage);
-      setStatus("ready");
-      setMessage(
-        payload.items.length
-          ? `Loaded page ${payload.page}. ${payload.hasNextPage ? " Load more to keep browsing." : " You have reached the end of the current results."}`
-          : "No additional results were returned.",
-      );
-    } catch (error) {
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
-
-      setStatus("error");
-      setMessage(readError(error));
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setIsLoadingMore(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    setDraftScore(selectedItem?.myRating ?? null);
-    setDraftReview(selectedItem?.myReview ?? "");
-  }, [
-    selectedItem?.externalId,
-    selectedItem?.myRating,
-    selectedItem?.myReview,
-  ]);
-
-  const updateItemRating = (itemId: number, score?: number, review = "") => {
+  // --- AS FUNÇÕES DE DAR NOTA QUE SUMIRAM VOLTARAM AQUI! ---
+  const updateItemRating = (itemId: number, score?: number) => {
     setResults((current) =>
       current.map((entry) =>
-        entry.id === itemId
-          ? { ...entry, myRating: score, myReview: review }
-          : entry,
+        entry.id === itemId ? { ...entry, myRating: score } : entry,
       ),
     );
     setSelectedItem((current) =>
       current && current.id === itemId
-        ? { ...current, myRating: score, myReview: review }
+        ? { ...current, myRating: score }
         : current,
     );
   };
 
-  const updateItemFavorite = (itemId: number, myFavorite: boolean) => {
-    setResults((current) =>
-      current.map((entry) =>
-        entry.id === itemId ? { ...entry, myFavorite } : entry,
-      ),
-    );
-    setSelectedItem((current) =>
-      current && current.id === itemId ? { ...current, myFavorite } : current,
-    );
-  };
-
-  const updateItemSavedAlbum = (itemId: number, mySavedAlbum: boolean) => {
-    setResults((current) =>
-      current.map((entry) =>
-        entry.id === itemId ? { ...entry, mySavedAlbum } : entry,
-      ),
-    );
-    setSelectedItem((current) =>
-      current && current.id === itemId ? { ...current, mySavedAlbum } : current,
-    );
-  };
-
-  const saveRating = async (item: CatalogItem) => {
-    if (!item.id) {
-      return;
-    }
-
-    if (!draftScore) {
-      setMessage("Choose a score before saving your review.");
-      return;
-    }
-
+  const rateItem = async (item: CatalogItem, score: number) => {
+    if (!item.id) return;
     setSavingRating(true);
 
     try {
-      const payload = await apiRequest<{ rating: Rating }>(
+      const payload = await apiRequest<{ rating: { score: number } }>(
         `/catalog/ratings/${item.id}`,
         {
           method: "POST",
-          body: JSON.stringify({
-            score: draftScore,
-            review: draftReview,
-          }),
+          body: JSON.stringify({ score }),
         },
       );
-      updateItemRating(item.id, payload.rating.score, payload.rating.review);
-      setDraftScore(payload.rating.score);
-      setDraftReview(payload.rating.review);
-      setMessage(`Saved your review for "${item.title}".`);
+      updateItemRating(item.id, payload.rating.score);
+      setMessage(`Saved ${payload.rating.score}/5 for "${item.title}".`);
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -592,10 +348,7 @@ export const SearchPage = () => {
   };
 
   const clearRating = async (item: CatalogItem) => {
-    if (!item.id) {
-      return;
-    }
-
+    if (!item.id) return;
     setSavingRating(true);
 
     try {
@@ -603,8 +356,6 @@ export const SearchPage = () => {
         method: "DELETE",
       });
       updateItemRating(item.id);
-      setDraftScore(null);
-      setDraftReview("");
       setMessage(`Cleared your rating for "${item.title}".`);
     } catch (error) {
       setMessage(readError(error));
@@ -612,232 +363,67 @@ export const SearchPage = () => {
       setSavingRating(false);
     }
   };
-
-  const saveAlbumRating = async (item: CatalogItem) => {
-    if (!item.id || item.type !== "album") {
-      return;
-    }
-
-    if (!draftScore) {
-      setMessage("Choose a score before saving your review.");
-      return;
-    }
-
-    setSavingRating(true);
-
-    try {
-      const payload = await apiRequest<{ rating: AlbumRating }>(
-        `/catalog/album-ratings/${item.id}`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            score: draftScore,
-            review: draftReview,
-          }),
-        },
-      );
-      updateItemRating(item.id, payload.rating.score, payload.rating.review);
-      setDraftScore(payload.rating.score);
-      setDraftReview(payload.rating.review);
-      setMessage(`Saved your album review for "${item.title}".`);
-    } catch (error) {
-      setMessage(readError(error));
-    } finally {
-      setSavingRating(false);
-    }
-  };
-
-  const clearAlbumRating = async (item: CatalogItem) => {
-    if (!item.id || item.type !== "album") {
-      return;
-    }
-
-    setSavingRating(true);
-
-    try {
-      await apiRequest<{ rating: null }>(`/catalog/album-ratings/${item.id}`, {
-        method: "DELETE",
-      });
-      updateItemRating(item.id);
-      setDraftScore(null);
-      setDraftReview("");
-      setMessage(`Cleared your album rating for "${item.title}".`);
-    } catch (error) {
-      setMessage(readError(error));
-    } finally {
-      setSavingRating(false);
-    }
-  };
-
-  const toggleFavorite = async (item: CatalogItem) => {
-    if (!item.id) {
-      return;
-    }
-
-    setSavingFavorite(true);
-
-    try {
-      const nextFavorite = !item.myFavorite;
-      await apiRequest<{ favorite: Favorite | null }>(
-        `/catalog/favorites/${item.id}`,
-        {
-          method: nextFavorite ? "POST" : "DELETE",
-          body: nextFavorite ? JSON.stringify({}) : undefined,
-        },
-      );
-      updateItemFavorite(item.id, nextFavorite);
-      setMessage(
-        nextFavorite
-          ? `"${item.title}" is in your favorites.`
-          : `Removed "${item.title}" from your favorites.`,
-      );
-    } catch (error) {
-      setMessage(readError(error));
-    } finally {
-      setSavingFavorite(false);
-    }
-  };
-
-  const toggleSavedAlbum = async (item: CatalogItem) => {
-    if (!item.id) {
-      return;
-    }
-
-    setSavingAlbum(true);
-
-    try {
-      const nextSavedAlbum = !item.mySavedAlbum;
-      await apiRequest<{ savedAlbum: SavedAlbum | null }>(
-        `/catalog/albums/saved/${item.id}`,
-        {
-          method: nextSavedAlbum ? "POST" : "DELETE",
-          body: nextSavedAlbum ? JSON.stringify({}) : undefined,
-        },
-      );
-      updateItemSavedAlbum(item.id, nextSavedAlbum);
-      setMessage(
-        nextSavedAlbum
-          ? `"${item.title}" is on your profile albums.`
-          : `Removed "${item.title}" from your profile albums.`,
-      );
-    } catch (error) {
-      setMessage(readError(error));
-    } finally {
-      setSavingAlbum(false);
-    }
-  };
-
-  const emptyStateCopy =
-    status === "error"
-      ? message
-      : trimmedQuery.length < 2
-        ? shortQueryCopy
-        : "No results loaded yet. Search for a title, artist, or album to begin.";
-
-  const closeModal = () => {
-    setSelectedItem(null);
-  };
-
-  useEffect(() => {
-    if (!selectedItem) {
-      return;
-    }
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closeModal();
-      }
-    };
-
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [selectedItem]);
+  // ---------------------------------------------------------
 
   return (
-    <section className="mx-auto grid max-w-[1120px] gap-6">
-      <article className={`${cardClass} grid content-start gap-6`}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Catalog search
-            </p>
-            <h1 className="m-0 text-[clamp(2rem,4vw,4.5rem)] leading-[0.98]">
-              Find the songs and albums you want to rate next.
-            </h1>
-            <p className="mt-4 leading-[1.6] text-foreground/82">
-              {initialCopy}
-            </p>
-          </div>
-        </div>
-
-        <label className="grid gap-2.5" htmlFor="catalog-search">
-          <span className="text-sm text-primary">Search query</span>
-          <input
-            autoComplete="off"
-            className="w-full rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-            id="catalog-search"
-            name="catalog_search"
-            onChange={(event) => handleQueryChange(event.target.value)}
-            placeholder="Search by song, album, artist, or show title..."
-            spellCheck={false}
-            type="search"
-            value={query}
-          />
-        </label>
-
-        <div
-          aria-live="polite"
-          className="-mt-2 leading-[1.6] text-foreground/82"
-        >
-          {trimmedQuery.length < 2 && trimmedQuery.length > 0
-            ? shortQueryCopy
-            : "Try searches like Hadestown, Sondheim, or Original Broadway Cast."}
-        </div>
-
-        <div
-          aria-label="Search filters"
-          className="flex flex-wrap gap-3"
-          role="group"
-        >
-          {filters.map((filter) => (
-            <button
-              aria-pressed={type === filter.value}
-              className={`${chipClass} ${
-                type === filter.value
-                  ? "border-secondary bg-linear-to-br from-primary/20 to-secondary/28 text-foreground"
-                  : "border-foreground/14 bg-white/4 text-foreground/84"
-              }`}
-              key={filter.value}
-              onClick={() => handleTypeChange(filter.value)}
-              type="button"
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-
-        <p
-          aria-live={status === "error" ? "assertive" : "polite"}
-          className={
-            status === "error"
-              ? "text-danger"
-              : "leading-[1.6] text-foreground/82"
-          }
-          role={status === "error" ? "alert" : "status"}
-        >
-          {message}
-        </p>
-
-        <div
-          className="grid gap-[14px]"
-          aria-busy={status === "loading" || isLoadingMore}
-        >
-          {status === "loading" ? (
-            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-              Searching the catalog...
+    <main className="shell">
+      <section className="search-layout">
+        <article className="card search-panel">
+          <div className="section-header">
+            <div>
+              <p className="eyebrow">{t("search_page_eyebrow")}</p>
+              <h1>{t("search_page_title")}</h1>
             </div>
-          ) : null}
+            <Link className="ghost-button button-link" to="/app">
+              {t("back_to_dashboard")}
+            </Link>
+          </div>
 
+          <label className="search-input-wrap" htmlFor="catalog-search">
+            <span>{t("search_query_label")}</span>
+            <input
+              id="catalog-search"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("search_placeholder_catalog")}
+              type="search"
+              value={query}
+            />
+          </label>
+
+          <div
+            className="filter-row"
+            role="tablist"
+            aria-label="Search filters"
+          >
+            {filters.map((filter) => {
+              const translationKey =
+                filter.value === "all"
+                  ? "filter_all"
+                  : filter.value === "track"
+                    ? "filter_tracks"
+                    : "filter_albums";
+              return (
+                <button
+                  aria-selected={type === filter.value}
+                  className={
+                    type === filter.value ? "filter-chip active" : "filter-chip"
+                  }
+                  key={filter.value}
+                  onClick={() => setType(filter.value)}
+                  role="tab"
+                  type="button"
+                >
+                  {t(translationKey)}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className={status === "error" ? "form-error" : "support-copy"}>
+            {status === "idle" && !query ? t("search_help_text") : message}
+          </p>
+
+          <div className="results-grid">
           {status !== "loading" &&
             results.map((item) => {
               return (
@@ -847,10 +433,22 @@ export const SearchPage = () => {
                   onClick={() => setSelectedItem(item)}
                   type="button"
                 >
-                  <Artwork item={item} />
-                  <div className="grid min-w-0 gap-1.5">
-                    <div className="flex flex-wrap gap-2.5 text-[0.8rem] uppercase tracking-[0.08em] text-foreground/64">
-                      <span className="text-primary">{item.type}</span>
+                  <div className="result-cover">
+                    {item.artworkUrl ? (
+                      <img
+                        alt={`${item.title} cover`}
+                        loading="lazy"
+                        src={item.artworkUrl}
+                      />
+                    ) : (
+                      <div className="result-cover-fallback">
+                        {item.type === "album" ? "LP" : "♪"}
+                      </div>
+                    )}
+                  </div>
+                  <div className="result-copy">
+                    <div className="result-meta-line">
+                      <span className="result-type">{item.type}</span>
                       <span>{item.sourceProvider}</span>
                     </div>
                     <strong className="overflow-hidden text-ellipsis">
@@ -890,335 +488,110 @@ export const SearchPage = () => {
                       </span>
                     ) : null}
                   </div>
+                  <span
+                    className={
+                      item.imported ? "import-badge imported" : "import-badge"
+                    }
+                  >
+                    {item.imported ? "Imported" : "Remote"}
+                  </span>
                 </button>
               );
             })}
 
-          {status === "ready" && results.length === 0 ? (
-            <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-              {emptyStateCopy}
-            </div>
-          ) : null}
-        </div>
-
-        {hasNextPage && results.length > 0 ? (
-          <div className="flex justify-start">
-            <button
-              className={ghostButtonClass}
-              onClick={() => void loadMore()}
-              type="button"
-            >
-              {isLoadingMore ? "Loading More..." : "Load More"}
-            </button>
+            {status === "loading" || isPending ? (
+              <div className="result-placeholder">{t("loading_results")}</div>
+            ) : null}
+            {status === "ready" && results.length === 0 ? (
+              <div className="result-placeholder">{t("no_matches_query")}</div>
+            ) : null}
           </div>
-        ) : null}
       </article>
 
-      {selectedItem ? (
-        <div
-          aria-labelledby="catalog-detail-title"
-          aria-modal="true"
-          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/68 px-4 py-6 backdrop-blur-sm"
-          onMouseDown={closeModal}
-          role="dialog"
-        >
-          <article
-            className="grid max-h-[calc(100vh-3rem)] w-full max-w-[920px] overflow-y-auto rounded-[28px] border border-foreground/12 bg-surface p-5 shadow-[0_32px_100px_rgba(0,0,0,0.45)] sm:p-7"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-              <Artwork
-                item={selectedItem}
-                roundedClass="rounded-[24px]"
-                sizeClass="aspect-square w-full"
-              />
-              <div className="grid content-start gap-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-                      {selectedItem.type === "track" ? "Track" : "Album"} detail
-                    </p>
-                    <h2
-                      className="m-0 text-[clamp(1.9rem,4vw,3.6rem)] leading-[0.98]"
-                      id="catalog-detail-title"
-                    >
-                      {selectedItem.title}
-                    </h2>
-                    <p className="mt-3 text-[1.05rem] leading-[1.6] text-foreground/82">
-                      {selectedItem.artistName}
-                    </p>
-                  </div>
-                  <button
-                    aria-label="Close detail"
-                    className="grid min-h-[44px] min-w-[44px] place-items-center rounded-full border border-foreground/14 bg-white/5 text-xl font-bold text-foreground transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    onClick={closeModal}
-                    type="button"
-                  >
-                    ×
-                  </button>
+      <aside className="card result-detail">
+        <p className="eyebrow">{t("selection_eyebrow")}</p>
+        {selectedItem ? (
+          <>
+            <h2>{selectedItem.title}</h2>
+            <p className="lede compact">{selectedItem.artistName}</p>{" "}
+            <dl className="detail-grid">
+              <div>
+                  <dt>Release</dt>
+                  <dd>{formatDate(selectedItem.releaseDate)}</dd>
                 </div>
-
-                <dl className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-[18px] bg-white/4 p-4">
-                    <dt className="mb-2 text-sm text-primary">Release</dt>
-                    <dd className="m-0 leading-[1.6] text-foreground/82">
-                      {formatDate(selectedItem.releaseDate)}
-                    </dd>
-                  </div>
-                  <div className="rounded-[18px] bg-white/4 p-4">
-                    <dt className="mb-2 text-sm text-primary">Catalog</dt>
-                    <dd className="m-0 leading-[1.6] text-foreground/82">
-                      {selectedItem.imported ? "Saved" : "Not saved"}
-                    </dd>
-                  </div>
-                  <div className="rounded-[18px] bg-white/4 p-4">
-                    <dt className="mb-2 text-sm text-primary">Provider</dt>
-                    <dd className="m-0 leading-[1.6] text-foreground/82">
-                      {selectedItem.sourceProvider}
-                    </dd>
-                  </div>
-                  {selectedItem.albumTitle ? (
-                    <div className="rounded-[18px] bg-white/4 p-4">
-                      <dt className="mb-2 text-sm text-primary">Album</dt>
-                      <dd className="m-0 leading-[1.6] text-foreground/82">
-                        {selectedItem.albumTitle}
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
-
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    className={primaryButtonClass}
-                    disabled={
-                      selectedItem.imported ||
-                      importingId === selectedItem.externalId
-                    }
-                    onClick={() => void importItem(selectedItem)}
-                    type="button"
-                  >
+                <div>
+                  <dt>Provider</dt>
+                  <dd>{selectedItem.sourceProvider}</dd>
+                </div>
+                <div>
+                  <dt>Catalog status</dt>
+                  <dd>
                     {selectedItem.imported
-                      ? "Saved to Catalog"
-                      : importingId === selectedItem.externalId
-                        ? "Saving..."
-                        : "Save to Catalog"}
-                  </button>
-                  {selectedItem.type === "track" && selectedItem.imported ? (
-                    <button
-                      className={
-                        selectedItem.myFavorite
-                          ? ghostButtonClass
-                          : primaryButtonClass
-                      }
-                      disabled={savingFavorite}
-                      onClick={() => void toggleFavorite(selectedItem)}
-                      type="button"
-                    >
-                      {savingFavorite
-                        ? "Saving..."
-                        : selectedItem.myFavorite
-                          ? "Favorited"
-                          : "Add Favorite"}
-                    </button>
-                  ) : null}
-                  {selectedItem.type === "album" && selectedItem.imported ? (
-                    <button
-                      className={
-                        selectedItem.mySavedAlbum
-                          ? ghostButtonClass
-                          : primaryButtonClass
-                      }
-                      disabled={savingAlbum}
-                      onClick={() => void toggleSavedAlbum(selectedItem)}
-                      type="button"
-                    >
-                      {savingAlbum
-                        ? "Saving..."
-                        : selectedItem.mySavedAlbum
-                          ? "In My Albums"
-                          : "Add to My Albums"}
-                    </button>
-                  ) : null}
+                      ? "Imported locally"
+                      : "Not imported yet"}
+                  </dd>
                 </div>
-              </div>
-            </div>
-
-            {selectedItem.type === "track" && selectedItem.imported ? (
-              <section className="mt-6 grid gap-4 rounded-[24px] border border-foreground/12 bg-white/4 p-5">
-                <div className="flex flex-wrap items-end justify-between gap-3">
+                {selectedItem.albumTitle ? (
                   <div>
-                    <p className="mb-2 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-                      Your review
-                    </p>
-                    <h3 className="m-0 text-[clamp(1.4rem,2.4vw,2.2rem)] leading-[1.05]">
-                      {selectedItem.myRating
-                        ? `${selectedItem.myRating}/5 saved`
-                        : "Rate this track"}
-                    </h3>
+                    <dt>Album</dt>
+                    <dd>{selectedItem.albumTitle}</dd>
                   </div>
-                  {selectedItem.myRating ? (
-                    <button
-                      className={ghostButtonClass}
-                      disabled={savingRating}
-                      onClick={() => void clearRating(selectedItem)}
-                      type="button"
-                    >
-                      Clear Review
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="grid gap-3">
-                  <span className="text-sm text-primary">Score</span>
-                  <div
-                    aria-label="Rate this track"
-                    className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap"
-                    role="group"
-                  >
+                ) : null}
+              </dl>
+              <button
+                className="primary-button"
+                disabled={
+                  selectedItem.imported ||
+                  importingId === selectedItem.externalId
+                }
+                onClick={() => void importItem(selectedItem)}
+                type="button"
+              >
+                {selectedItem.imported
+                  ? "Imported to catalog"
+                  : importingId === selectedItem.externalId
+                    ? "Importing..."
+                    : "Import to local catalog"}
+              </button>
+              {selectedItem.type === "track" && selectedItem.imported ? (
+                <div className="rating-box">
+                  <p className="support-copy">Rate this track:</p>
+                  <div className="rating-row" aria-label="Rate this track">
                     {[1, 2, 3, 4, 5].map((score) => (
                       <button
-                        aria-pressed={draftScore === score}
-                        className={`min-h-[52px] rounded-[16px] border px-4 py-2 text-lg font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface sm:min-w-[56px] ${
-                          draftScore === score
-                            ? "border-secondary bg-linear-to-br from-primary/24 to-secondary/30 text-foreground"
-                            : "border-foreground/12 bg-foreground/5 text-foreground hover:border-secondary/50"
-                        }`}
+                        aria-pressed={selectedItem.myRating === score}
+                        className={
+                          selectedItem.myRating === score
+                            ? "rating-button active"
+                            : "rating-button"
+                        }
                         disabled={savingRating}
                         key={score}
-                        onClick={() => setDraftScore(score)}
+                        onClick={() => void rateItem(selectedItem, score)}
                         type="button"
                       >
                         {score}
                       </button>
                     ))}
-                  </div>
-                </div>
-
-                <label className="grid gap-2" htmlFor="rating-review">
-                  <span className="text-sm text-primary">Review</span>
-                  <textarea
-                    className="min-h-[150px] w-full resize-y rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 leading-[1.6] text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-                    disabled={savingRating}
-                    id="rating-review"
-                    maxLength={2000}
-                    onChange={(event) => setDraftReview(event.target.value)}
-                    placeholder="What stood out? Mention vocals, arrangement, lyrics, production, or why it belongs in your rotation."
-                    value={draftReview}
-                  />
-                  <span className="text-sm text-foreground/62">
-                    {draftReview.length}/2000 characters
-                  </span>
-                </label>
-
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    className={primaryButtonClass}
-                    disabled={savingRating || !draftScore}
-                    onClick={() => void saveRating(selectedItem)}
-                    type="button"
-                  >
-                    {savingRating ? "Saving..." : "Save Review"}
-                  </button>
-                </div>
-              </section>
-            ) : selectedItem.type === "track" ? (
-              <section className="mt-6 rounded-[24px] border border-foreground/12 bg-white/4 p-5">
-                <p className="m-0 leading-[1.6] text-foreground/82">
-                  Save this track to your catalog before adding a favorite or
-                  review.
-                </p>
-              </section>
-            ) : null}
-
-            {selectedItem.type === "album" && selectedItem.imported ? (
-              <section className="mt-6 grid gap-4 rounded-[24px] border border-foreground/12 bg-white/4 p-5">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <p className="mb-2 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-                      Your album review
-                    </p>
-                    <h3 className="m-0 text-[clamp(1.4rem,2.4vw,2.2rem)] leading-[1.05]">
-                      {selectedItem.myRating
-                        ? `${selectedItem.myRating}/5 saved`
-                        : "Rate this album"}
-                    </h3>
-                  </div>
-                  {selectedItem.myRating ? (
-                    <button
-                      className={ghostButtonClass}
-                      disabled={savingRating}
-                      onClick={() => void clearAlbumRating(selectedItem)}
-                      type="button"
-                    >
-                      Clear Review
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="grid gap-3">
-                  <span className="text-sm text-primary">Score</span>
-                  <div
-                    aria-label="Rate this album"
-                    className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap"
-                    role="group"
-                  >
-                    {[1, 2, 3, 4, 5].map((score) => (
+                    {selectedItem.myRating ? (
                       <button
-                        aria-pressed={draftScore === score}
-                        className={`min-h-[52px] rounded-[16px] border px-4 py-2 text-lg font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface sm:min-w-[56px] ${
-                          draftScore === score
-                            ? "border-secondary bg-linear-to-br from-primary/24 to-secondary/30 text-foreground"
-                            : "border-foreground/12 bg-foreground/5 text-foreground hover:border-secondary/50"
-                        }`}
+                        className="rating-clear-button"
                         disabled={savingRating}
-                        key={score}
-                        onClick={() => setDraftScore(score)}
+                        onClick={() => void clearRating(selectedItem)}
                         type="button"
                       >
-                        {score}
+                        Clear
                       </button>
-                    ))}
+                    ) : null}
                   </div>
                 </div>
-
-                <label className="grid gap-2" htmlFor="album-rating-review">
-                  <span className="text-sm text-primary">Review</span>
-                  <textarea
-                    className="min-h-[150px] w-full resize-y rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 leading-[1.6] text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-                    disabled={savingRating}
-                    id="album-rating-review"
-                    maxLength={2000}
-                    onChange={(event) => setDraftReview(event.target.value)}
-                    placeholder="How does the album work as a whole? Mention pacing, standouts, and production."
-                    value={draftReview}
-                  />
-                  <span className="text-sm text-foreground/62">
-                    {draftReview.length}/2000 characters
-                  </span>
-                </label>
-
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    className={primaryButtonClass}
-                    disabled={savingRating || !draftScore}
-                    onClick={() => void saveAlbumRating(selectedItem)}
-                    type="button"
-                  >
-                    {savingRating ? "Saving..." : "Save Review"}
-                  </button>
-                </div>
-              </section>
-            ) : selectedItem.type === "album" ? (
-              <section className="mt-6 rounded-[24px] border border-foreground/12 bg-white/4 p-5">
-                <p className="m-0 leading-[1.6] text-foreground/82">
-                  Save this album to your catalog before you can rate it or add
-                  it to your profile.
-                </p>
-              </section>
-            ) : null}
-          </article>
-        </div>
-      ) : null}
-    </section>
+              ) : null}
+            </>
+          ) : (
+            <p className="support-copy">{t("selection_empty_text")}</p>
+          )}
+        </aside>
+      </section>
+    </main>
   );
 };

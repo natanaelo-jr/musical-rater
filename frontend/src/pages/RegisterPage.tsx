@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next"; // 1. Importando o hook
 
 import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
@@ -17,6 +18,8 @@ const primaryButtonClass =
 export const RegisterPage = () => {
   const auth = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation(); // 2. Inicializando a tradução
+
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,72 +44,54 @@ export const RegisterPage = () => {
   };
 
   return (
-    <main className={shellClass}>
-      <section className={cardClass}>
-        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-          Create profile
-        </p>
-        <h1 className="m-0 text-[clamp(2rem,3vw,3rem)] leading-[0.98]">
-          Create your account and start building your musical library.
-        </h1>
-        <p className="mt-4 leading-[1.6] text-foreground/82">
-          After sign-up, your first step will be finding albums or tracks to
-          save into your catalog.
-        </p>
-        <form className="mt-7 grid gap-[18px]" onSubmit={submit}>
+    <main className="shell">
+      <section className="card auth-card">
+        {/* 3. Substituindo os textos pelo t() */}
+        <p className="eyebrow">{t("register_eyebrow")}</p>
+        <h1>{t("register_title")}</h1>
+
+        <form className="stack" onSubmit={submit}>
           <Field
             autoComplete="name"
             error={errors.display_name}
-            helperText="Shown inside the app so your account feels recognizable."
-            label="Display name"
-            name="display_name"
+            label={t("display_name_label")}
             onChange={setDisplayName}
-            placeholder="Broadway fan..."
+            placeholder={t("display_name_placeholder")}
             value={displayName}
           />
           <Field
             autoComplete="email"
             error={errors.email}
-            helperText="Use a working email so you can sign back in later."
-            label="Email"
-            name="email"
+            label={t("email_label")} // Reutilizando a chave da tela de Login!
             onChange={setEmail}
-            placeholder="you@example.com..."
-            spellCheck={false}
+            placeholder={t("email_placeholder")}
             type="email"
             value={email}
           />
           <Field
             autoComplete="new-password"
             error={errors.password}
-            helperText="Use at least 8 characters."
-            label="Password"
-            name="password"
+            label={t("password_label")} // Reutilizando a chave da tela de Login!
             onChange={setPassword}
-            placeholder="At least 8 characters..."
+            placeholder={t("password_placeholder")}
             type="password"
             value={password}
           />
-          {errors.form ? (
-            <p aria-live="polite" className="text-danger">
-              {errors.form}
-            </p>
-          ) : null}
+          {errors.form ? <p className="form-error">{errors.form}</p> : null}
+
           <button
             className={primaryButtonClass}
             disabled={submitting}
             type="submit"
           >
-            {submitting ? "Creating Account..." : "Create Account"}
+            {submitting ? t("creating_account") : t("create_account")}
           </button>
         </form>
-        <p className="mt-4 leading-[1.6] text-foreground/82">
-          Already registered?{" "}
-          <Link
-            className="font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-            to="/login"
-          >
-            Sign In
+
+        <p className="support-copy">
+          {t("already_registered")}{" "}
+          <Link className="inline-link" to="/login">
+            {t("sign_in")} {/* Reutilizando a chave da tela inicial! */}
           </Link>
         </p>
       </section>

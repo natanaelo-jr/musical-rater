@@ -1,5 +1,7 @@
+
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../auth/useAuth";
 import { apiGet } from "../lib/api";
@@ -27,7 +29,10 @@ const ghostButtonClass =
   "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 export const DashboardPage = () => {
-  const user = useAuth().user;
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { user } = auth;
   const [ratings, setRatings] = useState<RatingSummary[]>([]);
   const [followingCount, setFollowingCount] = useState(0);
 
@@ -67,77 +72,77 @@ export const DashboardPage = () => {
     : "Your account is ready. Search the catalog, save what matters, and keep moving toward ratings.";
 
   return (
-    <section className="mx-auto grid max-w-[1120px] gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.8fr)]">
-      <article className={`${cardClass} p-10 md:p-10 lg:col-span-2`}>
-        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-          Private dashboard
-        </p>
-        <h1 className="m-0 text-[clamp(2rem,4vw,4.5rem)] leading-[0.98]">
-          {user.displayName}, your workspace is ready.
-        </h1>
-        <p className="mt-5 max-w-[48rem] text-[1.05rem] leading-[1.7] text-foreground/82">
-          {introCopy}
-        </p>
-        <div className="mt-8 flex flex-wrap items-center gap-4">
-          <Link className={primaryButtonClass} to={primaryAction}>
-            {primaryLabel}
-          </Link>
-          <Link className={ghostButtonClass} to="/app/people">
-            Find People
-          </Link>
-          <Link
-            className={ghostButtonClass}
-            to={needsProfileSetup ? "/app/search" : "/app/profile"}
-          >
-            {needsProfileSetup ? "Browse First" : "Edit Profile"}
-          </Link>
-        </div>
-      </article>
+    <main className="shell">
+      <section className="dashboard-layout">
+        <article className="card spotlight">
+          <p className="eyebrow">{t("dashboard_eyebrow")}</p>
+          {/* Aqui passamos o nome do usuário como variável para a tradução */}
+          <h1>{t("dashboard_title", { name: user.displayName })}</h1>
+          <p className="lede">{t("dashboard_lede")}</p>
+          <div className="hero-actions">
+            <Link className="primary-button button-link" to="/app/search">
+              {t("search_catalog")}
+            </Link>
+            <Link className="primary-button button-link" to="/app/profile">
+              {t("edit_profile")}
+            </Link>
+            <Link className="primary-button button-link" to="/app/people">
+              {t("find_people")}
+            </Link>
+            <button
+              className="ghost-button"
+              onClick={() => {
+                void auth
+                  .logout()
+                  .then(() => navigate("/login", { replace: true }));
+              }}
+              type="button"
+            >
+              {t("sign_out")}
+            </button>
+          </div>
+        </article>
 
-      <section className={`${cardClass} grid gap-5`}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Recently rated
-            </p>
-            <h2 className="m-0 text-[clamp(1.6rem,2.4vw,2.4rem)] leading-[1.05]">
-              Your latest scores
-            </h2>
+        {/* Seção Esquerda: Recently Rated */}
+        <aside className="card profile-summary">
+          <div className="flex justify-between items-center mb-4">
+            <p className="eyebrow mb-0">{t("recently_rated_eyebrow")}</p>
+            <Link to="/app/ratings" className="inline-link text-sm">
+              {t("rate_more")}
+            </Link>
           </div>
-          <Link className="font-semibold text-primary" to="/app/search">
-            Rate more
-          </Link>
-        </div>
-        {ratings.length ? (
-          <div className="grid gap-3">
-            {ratings.map((rating) => (
-              <article
-                className="grid gap-3 rounded-[18px] bg-white/4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                key={rating.id}
-              >
-                <div className="grid gap-1">
-                  <strong>{rating.title}</strong>
-                  <span className="text-foreground/78">
-                    {rating.artistName}
-                    {rating.albumTitle ? ` · ${rating.albumTitle}` : ""}
-                  </span>
-                  {rating.review ? (
-                    <p className="m-0 line-clamp-2 leading-[1.5] text-foreground/72">
-                      {rating.review}
-                    </p>
-                  ) : null}
-                </div>
-                <span className="w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold text-foreground">
-                  {rating.score}/5
-                </span>
-              </article>
-            ))}
+          <p className="lede">{t("latest_scores")}</p>
+          <div className="mt-8 text-gray-500">
+            <p>{t("empty_recent_ratings")}</p>
           </div>
-        ) : (
-          <p className="leading-[1.6] text-foreground/82">
-            Rate an imported track and it will land here.
-          </p>
-        )}
+        </aside>
+
+        {/* Seção Direita: Next Actions */}
+        <aside className="card profile-summary">
+          <p className="eyebrow">{t("next_actions_eyebrow")}</p>
+          <dl className="summary-grid">
+            <div>
+              <dt>{t("action_search_title")}</dt>
+              <dd>{t("action_search_desc")}</dd>
+            </div>
+            <div>
+              <dt>{t("action_import_title")}</dt>
+              <dd>{t("action_import_desc")}</dd>
+            </div>
+            <div>
+              <dt>{t("action_profile_title")}</dt>
+              <dd>{user.username || t("action_profile_desc_empty")}</dd>
+            </div>
+            <div>
+              <dt>{t("action_taste_title")}</dt>
+              <dd>{user.bio || t("action_taste_desc_empty")}</dd>
+            </div>
+            <div>
+              <dt>{t("action_following_title")}</dt>
+              <dd>{t("action_following_desc")}</dd>
+            </div>
+          </dl>
+        </aside>
       </section>
 
       <aside className={cardClass}>
