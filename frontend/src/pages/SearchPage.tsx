@@ -22,6 +22,31 @@ type CatalogItem = {
   metadata?: Record<string, unknown>;
 };
 
+type Rating = {
+  id: number;
+  musicId: number;
+  score: number;
+  review: string;
+};
+
+type AlbumRating = {
+  id: number;
+  albumId: number;
+  score: number;
+  review: string;
+  updatedAt: string;
+};
+
+type Favorite = {
+  id: number;
+  musicId: number;
+};
+
+type SavedAlbum = {
+  id: number;
+  albumId: number;
+};
+
 type SearchResponse = {
   items: CatalogItem[];
   page: number;
@@ -34,10 +59,23 @@ const filters: Array<{ label: string; value: SearchType }> = [
   { label: "Albums", value: "album" },
 ];
 
+const initialCopy =
+  "Search by title, artist, album, or show, then save what belongs in your catalog.";
+const shortQueryCopy = "Use at least 2 characters to search the catalog.";
+const cardClass =
+  "rounded-[28px] border border-foreground/12 bg-surface p-8 shadow-panel backdrop-blur-[20px]";
+const chipClass =
+  "rounded-full border px-4 py-2.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+const primaryButtonClass =
+  "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+const ghostButtonClass =
+  "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+
 const readError = (error: unknown) => {
   if (error instanceof ApiError) {
     return error.message;
   }
+
   return "Unexpected error. Please try again.";
 };
 
@@ -45,7 +83,62 @@ const formatDate = (value?: string) => {
   if (!value) {
     return "Unknown release";
   }
-  return value;
+
+  if (/^\d{4}$/.test(value)) {
+    return value;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: value.length > 7 ? "numeric" : undefined,
+  }).format(parsed);
+};
+
+const itemKey = (item: CatalogItem) =>
+  `${item.sourceProvider}:${item.externalId}`;
+
+const Artwork = ({
+  item,
+  sizeClass = "h-[72px] w-[72px]",
+  roundedClass = "rounded-[18px]",
+}: {
+  item: Pick<CatalogItem, "artworkUrl" | "title" | "type">;
+  sizeClass?: string;
+  roundedClass?: string;
+}) => {
+  const [failedUrl, setFailedUrl] = useState<string | undefined>();
+  const shouldShowImage = item.artworkUrl && failedUrl !== item.artworkUrl;
+
+  return (
+    <div
+      className={`${sizeClass} ${roundedClass} grid shrink-0 place-items-center overflow-hidden border border-foreground/10 bg-linear-to-br from-primary/22 via-white/5 to-secondary/24 text-center text-foreground shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.04)]`}
+    >
+      {shouldShowImage ? (
+        <img
+          alt={`${item.title} cover`}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setFailedUrl(item.artworkUrl)}
+          src={item.artworkUrl}
+        />
+      ) : (
+        <div className="grid gap-1 px-2">
+          <span className="text-2xl font-bold">
+            {item.type === "album" ? "LP" : "♪"}
+          </span>
+          <span className="text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-foreground/64">
+            No cover
+          </span>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export const SearchPage = () => {
@@ -62,8 +155,37 @@ export const SearchPage = () => {
   const [importingId, setImportingId] = useState<string | null>(null);
   const [savingRating, setSavingRating] = useState(false);
 
-  useEffect(() => {
-    const trimmedQuery = query.trim();
+  const trimmedQuery = query.trim();
+
+  const resetSearchState = (
+    nextStatus: "idle" | "error",
+    nextMessage: string,
+  ) => {
+    setResults([]);
+    setSelectedItem(null);
+    setHasNextPage(false);
+    setPage(1);
+    setStatus(nextStatus);
+    setMessage(nextMessage);
+  };
+
+  const handleQueryChange = (value: string) => {
+    const nextTrimmedQuery = value.trim();
+
+    setQuery(value);
+
+    if (nextTrimmedQuery.length === 0) {
+      resetSearchState("idle", initialCopy);
+      return;
+    }
+
+    if (nextTrimmedQuery.length < 2) {
+      resetSearchState("error", shortQueryCopy);
+    }
+  };
+
+  const handleTypeChange = (nextType: SearchType) => {
+    setType(nextType);
 
     if (trimmedQuery.length === 0) {
       setResults([]);
@@ -85,8 +207,19 @@ export const SearchPage = () => {
     setMessage(t("searching_catalog"));
 
     const timeoutId = window.setTimeout(() => {
-      void apiGet<SearchResponse>(
+      setStatus("loading");
+      setMessage(`Searching for "${trimmedQuery}"...`);
+      setResults([]);
+      setSelectedItem(null);
+      setHasNextPage(false);
+      setPage(1);
+
+      void apiRequest<SearchResponse>(
         `/catalog/search?q=${encodeURIComponent(trimmedQuery)}&type=${type}&page=1`,
+        {
+          method: "GET",
+          signal: controller.signal,
+        },
       )
         .then((payload) => {
           startTransition(() => {
@@ -117,14 +250,21 @@ export const SearchPage = () => {
           });
         })
         .catch((error: unknown) => {
+          if (requestId !== requestIdRef.current || controller.signal.aborted) {
+            return;
+          }
+
           setResults([]);
           setSelectedItem(null);
+          setHasNextPage(false);
+          setPage(1);
           setStatus("error");
           setMessage(readError(error));
         });
-    }, 350);
+    }, 300);
 
     return () => {
+      controller.abort();
       window.clearTimeout(timeoutId);
     };
   }, [query, type, t]);
@@ -148,8 +288,7 @@ export const SearchPage = () => {
       const importedItem = payload.item;
       setResults((current) =>
         current.map((entry) =>
-          entry.externalId === importedItem.externalId &&
-          entry.sourceProvider === importedItem.sourceProvider
+          itemKey(entry) === itemKey(importedItem)
             ? { ...entry, ...importedItem, imported: true }
             : entry,
         ),
@@ -158,15 +297,14 @@ export const SearchPage = () => {
         if (!current) {
           return importedItem;
         }
-        if (
-          current.externalId === importedItem.externalId &&
-          current.sourceProvider === importedItem.sourceProvider
-        ) {
+
+        if (itemKey(current) === itemKey(importedItem)) {
           return { ...current, ...importedItem, imported: true };
         }
+
         return current;
       });
-      setMessage(`"${importedItem.title}" is ready in the local catalog.`);
+      setMessage(`"${importedItem.title}" is now saved in your catalog.`);
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -286,15 +424,12 @@ export const SearchPage = () => {
           </p>
 
           <div className="results-grid">
-            {results.map((item) => {
-              const isSelected =
-                selectedItem?.externalId === item.externalId &&
-                selectedItem?.sourceProvider === item.sourceProvider;
-
+          {status !== "loading" &&
+            results.map((item) => {
               return (
                 <button
-                  className={isSelected ? "result-card active" : "result-card"}
-                  key={`${item.sourceProvider}:${item.externalId}`}
+                  className="grid w-full items-center gap-4 rounded-[22px] border border-foreground/12 bg-white/4 px-4 py-4 text-left text-foreground transition hover:-translate-y-px hover:border-secondary/60 hover:bg-secondary/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface md:grid-cols-[72px_minmax(0,1fr)_auto]"
+                  key={itemKey(item)}
                   onClick={() => setSelectedItem(item)}
                   type="button"
                 >
@@ -316,9 +451,42 @@ export const SearchPage = () => {
                       <span className="result-type">{item.type}</span>
                       <span>{item.sourceProvider}</span>
                     </div>
-                    <strong>{item.title}</strong>
-                    <span>{item.artistName}</span>
-                    <span>{formatDate(item.releaseDate)}</span>
+                    <strong className="overflow-hidden text-ellipsis">
+                      {item.title}
+                    </strong>
+                    <span className="overflow-hidden text-ellipsis">
+                      {item.artistName}
+                    </span>
+                    <span className="overflow-hidden text-ellipsis">
+                      {formatDate(item.releaseDate)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-start justify-end gap-2 md:justify-self-end">
+                    <span
+                      className={`self-start rounded-full px-3 py-2 text-[0.78rem] ${
+                        item.imported
+                          ? "bg-success-bg text-success"
+                          : "bg-white/8 text-foreground/78"
+                      }`}
+                    >
+                      {item.imported ? "Saved" : "Available"}
+                    </span>
+                    {item.myRating ? (
+                      <span className="rounded-full bg-secondary/16 px-3 py-2 text-[0.78rem] font-semibold text-foreground">
+                        {item.type === "album" ? "Album " : ""}Rated{" "}
+                        {item.myRating}/5
+                      </span>
+                    ) : null}
+                    {item.myFavorite ? (
+                      <span className="rounded-full bg-primary/16 px-3 py-2 text-[0.78rem] font-semibold text-foreground">
+                        Favorite
+                      </span>
+                    ) : null}
+                    {item.mySavedAlbum ? (
+                      <span className="rounded-full bg-primary/16 px-3 py-2 text-[0.78rem] font-semibold text-foreground">
+                        My Album
+                      </span>
+                    ) : null}
                   </div>
                   <span
                     className={
@@ -338,20 +506,16 @@ export const SearchPage = () => {
               <div className="result-placeholder">{t("no_matches_query")}</div>
             ) : null}
           </div>
-        </article>
+      </article>
 
-        <aside className="card result-detail">
-          <p className="eyebrow">{t("selection_eyebrow")}</p>
-          {selectedItem ? (
-            <>
-              <h2>{selectedItem.title}</h2>
-              <p className="lede compact">{selectedItem.artistName}</p>{" "}
-              <dl className="detail-grid">
-                <div>
-                  <dt>Type</dt>
-                  <dd>{selectedItem.type}</dd>
-                </div>
-                <div>
+      <aside className="card result-detail">
+        <p className="eyebrow">{t("selection_eyebrow")}</p>
+        {selectedItem ? (
+          <>
+            <h2>{selectedItem.title}</h2>
+            <p className="lede compact">{selectedItem.artistName}</p>{" "}
+            <dl className="detail-grid">
+              <div>
                   <dt>Release</dt>
                   <dd>{formatDate(selectedItem.releaseDate)}</dd>
                 </div>

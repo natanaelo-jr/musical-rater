@@ -25,4 +25,3 @@ repos:
         files: ^frontend/.*\.(js|ts|jsx|tsx|json|css|md)$
         additional_dependencies:
           - prettier
-          - prettier-plugin-tailwindcss

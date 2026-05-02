@@ -59,7 +59,9 @@ def register(request, payload: RegisterInput):
     if not display_name:
         return validation_error({"display_name": "Display name is required."})
     if len(payload.password) < 8:
-        return validation_error({"password": "Password must have at least 8 characters."})
+        return validation_error(
+            {"password": "Password must have at least 8 characters."}
+        )
 
     try:
         user = User.objects.create_user(email=email, password=payload.password)
@@ -74,9 +76,13 @@ def register(request, payload: RegisterInput):
 
 @auth_router.post("/login")
 def login_view(request, payload: LoginInput):
-    user = authenticate(request, email=payload.email.strip().lower(), password=payload.password)
+    user = authenticate(
+        request, email=payload.email.strip().lower(), password=payload.password
+    )
     if user is None:
-        return JsonResponse({"errors": {"credentials": "Invalid email or password."}}, status=401)
+        return JsonResponse(
+            {"errors": {"credentials": "Invalid email or password."}}, status=401
+        )
 
     login(request, user)
     return {"authenticated": True, "user": serialize_user(user)}

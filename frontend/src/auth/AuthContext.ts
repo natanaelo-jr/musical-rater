@@ -27,7 +27,7 @@ export type User = {
   bio: string;
 };
 
-type AuthState = "loading" | "authenticated" | "anonymous";
+export type AuthState = "loading" | "authenticated" | "anonymous";
 
 export type AuthContextValue = {
   status: AuthState;

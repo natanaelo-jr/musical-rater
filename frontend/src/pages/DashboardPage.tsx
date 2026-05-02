@@ -1,16 +1,75 @@
+
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+
 import { useAuth } from "../auth/useAuth";
+import { apiGet } from "../lib/api";
+
+type RatingSummary = {
+  id: number;
+  musicId: number;
+  score: number;
+  review: string;
+  title: string;
+  artistName: string;
+  albumTitle?: string;
+  artworkUrl?: string;
+};
+
+type FollowingSummary = {
+  id: string;
+};
+
+const cardClass =
+  "rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]";
+const primaryButtonClass =
+  "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+const ghostButtonClass =
+  "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 export const DashboardPage = () => {
   const auth = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const user = auth.user;
+  const { user } = auth;
+  const [ratings, setRatings] = useState<RatingSummary[]>([]);
+  const [followingCount, setFollowingCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    void apiGet<{ items: RatingSummary[] }>("/catalog/ratings")
+      .then((payload) => {
+        setRatings(payload.items);
+      })
+      .catch(() => {
+        setRatings([]);
+      });
+
+    void apiGet<{ items: FollowingSummary[] }>("/social/following")
+      .then((payload) => {
+        setFollowingCount(payload.items.length);
+      })
+      .catch(() => {
+        setFollowingCount(0);
+      });
+  }, [user]);
 
   if (!user) {
     return null;
   }
+
+  const needsProfileSetup = !user.username || !user.bio || !user.avatarUrl;
+  const primaryAction = needsProfileSetup ? "/app/profile" : "/app/search";
+  const primaryLabel = needsProfileSetup
+    ? "Finish Profile Setup"
+    : "Search Catalog";
+  const introCopy = needsProfileSetup
+    ? "Finish your profile first so the app can show a complete identity, then jump into search."
+    : "Your account is ready. Search the catalog, save what matters, and keep moving toward ratings.";
 
   return (
     <main className="shell">
@@ -85,6 +144,49 @@ export const DashboardPage = () => {
           </dl>
         </aside>
       </section>
-    </main>
+
+      <aside className={cardClass}>
+        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+          Next actions
+        </p>
+        <dl className="mt-5 grid gap-[18px]">
+          <div className="rounded-[18px] bg-white/4 p-4">
+            <dt className="mb-2 text-sm text-primary">Search</dt>
+            <dd className="m-0 leading-[1.6] text-foreground/82">
+              Look up songs and albums in the shared catalog.
+            </dd>
+          </div>
+          <div className="rounded-[18px] bg-white/4 p-4">
+            <dt className="mb-2 text-sm text-primary">Save</dt>
+            <dd className="m-0 leading-[1.6] text-foreground/82">
+              Move selected results into your catalog when you want to keep
+              them.
+            </dd>
+          </div>
+          <div className="rounded-[18px] bg-white/4 p-4">
+            <dt className="mb-2 text-sm text-primary">Profile status</dt>
+            <dd className="m-0 leading-[1.6] text-foreground/82">
+              {needsProfileSetup
+                ? "Complete your name, handle, avatar, and bio so your account feels finished."
+                : user.username}
+            </dd>
+          </div>
+          <div className="rounded-[18px] bg-white/4 p-4">
+            <dt className="mb-2 text-sm text-primary">Taste signal</dt>
+            <dd className="m-0 leading-[1.6] text-foreground/82">
+              {user.bio || "Tell us what you listen to."}
+            </dd>
+          </div>
+          <div className="rounded-[18px] bg-white/4 p-4">
+            <dt className="mb-2 text-sm text-primary">Following</dt>
+            <dd className="m-0 leading-[1.6] text-foreground/82">
+              {followingCount
+                ? `${followingCount} listener${followingCount === 1 ? "" : "s"}`
+                : "Find listeners to follow."}
+            </dd>
+          </div>
+        </dl>
+      </aside>
+    </section>
   );
 };

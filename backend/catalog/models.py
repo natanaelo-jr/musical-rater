@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -23,7 +25,9 @@ class Artist(models.Model):
 
 class Album(models.Model):
     title = models.CharField(max_length=255)
-    primary_artist = models.ForeignKey(Artist, on_delete=models.CASCADE, related_name="albums")
+    primary_artist = models.ForeignKey(
+        Artist, on_delete=models.CASCADE, related_name="albums"
+    )
     source_provider = models.CharField(max_length=50, default="musicbrainz")
     external_id = models.CharField(max_length=255)
     release_date = models.CharField(max_length=32, blank=True)
@@ -45,7 +49,9 @@ class Album(models.Model):
 
 class Music(models.Model):
     title = models.CharField(max_length=255)
-    primary_artist = models.ForeignKey(Artist, on_delete=models.CASCADE, related_name="tracks")
+    primary_artist = models.ForeignKey(
+        Artist, on_delete=models.CASCADE, related_name="tracks"
+    )
     album = models.ForeignKey(
         Album,
         on_delete=models.SET_NULL,
@@ -72,3 +78,111 @@ class Music(models.Model):
     def __str__(self):
         return self.title
 
+
+class Rating(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ratings"
+    )
+    music = models.ForeignKey(Music, on_delete=models.CASCADE, related_name="ratings")
+    score = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    review = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "music"],
+                name="catalog_rating_user_music_unique",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} rated {self.music_id}: {self.score}"
+
+
+class AlbumRating(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="album_ratings"
+    )
+    album = models.ForeignKey(Album, on_delete=models.CASCADE, related_name="ratings")
+    score = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    review = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "album"],
+                name="catalog_album_rating_user_album_unique",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} rated album {self.album_id}: {self.score}"
+
+
+class RatingComment(models.Model):
+    rating = models.ForeignKey(
+        Rating, on_delete=models.CASCADE, related_name="comments"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="rating_comments",
+    )
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="replies",
+    )
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user_id} on rating {self.rating_id}"
+
+
+class Favorite(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorites"
+    )
+    music = models.ForeignKey(Music, on_delete=models.CASCADE, related_name="favorites")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "music"],
+                name="catalog_favorite_user_music_unique",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} favorited {self.music_id}"
+
+
+class SavedAlbum(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_albums"
+    )
+    album = models.ForeignKey(Album, on_delete=models.CASCADE, related_name="saves")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "album"],
+                name="catalog_saved_album_user_album_unique",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} saved album {self.album_id}"

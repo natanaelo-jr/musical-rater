@@ -23,6 +23,7 @@ Viabilizar a integração de um sistema de avaliação musical, onde os usuário
 
 ## User Stories
 
+- Como usuário, quero selecionar o idioma da minha preferência.
 - Como usuário, quero criar um perfil para que eu possa personalizar minha experiência na plataforma.
 - Como usuário, quero pesquisar por músicas e álbuns para encontrar minhas músicas favoritas.
 - Como usuário, quero avaliar músicas e álbuns com nota e review para compartilhar minhas opiniões com outros usuários.
