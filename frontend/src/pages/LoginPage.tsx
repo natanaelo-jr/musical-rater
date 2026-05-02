@@ -48,55 +48,25 @@ export const LoginPage = () => {
   };
 
   return (
-<<<<<<< HEAD
     <main className="shell">
       <section className="card auth-card">
         {/* Substituindo os textos fixos pelas chaves */}
         <p className="eyebrow">{t("login_eyebrow")}</p>
         <h1>{t("login_title")}</h1>
         <form className="stack" onSubmit={submit}>
-=======
-    <main className={shellClass}>
-      <section className={cardClass}>
-        <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-          Welcome back
-        </p>
-        <h1 className="m-0 text-[clamp(2rem,3vw,3rem)] leading-[0.98]">
-          Sign in and get back to your saved musical shortlist.
-        </h1>
-        <p className="mt-4 leading-[1.6] text-foreground/82">
-          You&apos;ll return to your workspace, search flow, and profile setup.
-        </p>
-        <form className="mt-7 grid gap-[18px]" onSubmit={submit}>
->>>>>>> main
           <Field
             autoComplete="email"
             error={errors.email}
-<<<<<<< HEAD
             label={t("email_label")}
             onChange={setEmail}
             placeholder={t("email_placeholder")}
-=======
-            helperText="Use the email address tied to your account."
-            label="Email"
-            name="email"
-            onChange={setEmail}
-            placeholder="you@example.com..."
-            spellCheck={false}
->>>>>>> main
             type="email"
             value={email}
           />
           <Field
             autoComplete="current-password"
             error={errors.password}
-<<<<<<< HEAD
             label={t("password_label")}
-=======
-            helperText="Use your existing password."
-            label="Password"
-            name="password"
->>>>>>> main
             onChange={setPassword}
             type="password"
             value={password}
@@ -111,7 +81,6 @@ export const LoginPage = () => {
             disabled={submitting}
             type="submit"
           >
-<<<<<<< HEAD
             {submitting ? t("signing_in") : t("sign_in")}
           </button>
         </form>
@@ -119,18 +88,6 @@ export const LoginPage = () => {
           {t("no_account")}{" "}
           <Link className="inline-link" to="/register">
             {t("create_one")}
-=======
-            {submitting ? "Signing In..." : "Sign In"}
-          </button>
-        </form>
-        <p className="mt-4 leading-[1.6] text-foreground/82">
-          No account yet?{" "}
-          <Link
-            className="font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-            to="/register"
-          >
-            Create one
->>>>>>> main
           </Link>
         </p>
       </section>
