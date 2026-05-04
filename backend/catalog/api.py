@@ -10,7 +10,11 @@ from catalog.models import (
     RatingComment,
     SavedAlbum,
 )
-from catalog.services import import_catalog_item, search_catalog
+from catalog.services import (
+    import_catalog_item,
+    recommend_songs_for_user,
+    search_catalog,
+)
 
 catalog_router = Router(tags=["catalog"])
 
@@ -154,6 +158,20 @@ def search_catalog_view(request, q: str, type: str = "all", page: int = 1):
         return JsonResponse(
             {"detail": "Catalog provider is currently unavailable."}, status=502
         )
+
+
+@catalog_router.get("/recommendations")
+def list_recommendations_view(request, limit: int = 8):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if limit < 1:
+        return validation_error({"limit": "Limit must be greater than 0."})
+    if limit > 20:
+        return validation_error({"limit": "Limit must be 20 or less."})
+
+    return recommend_songs_for_user(user=request.user, limit=limit)
 
 
 @catalog_router.get("/ratings")

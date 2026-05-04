@@ -19,6 +19,16 @@ type FollowingSummary = {
   id: string;
 };
 
+type Recommendation = {
+  musicId: number;
+  title: string;
+  artistName: string;
+  albumTitle?: string;
+  artworkUrl?: string;
+  score: number;
+  reason: string;
+};
+
 const cardClass =
   "rounded-[28px] border border-foreground/12 bg-panel p-8 shadow-panel backdrop-blur-[20px]";
 const primaryButtonClass =
@@ -29,6 +39,7 @@ const ghostButtonClass =
 export const DashboardPage = () => {
   const user = useAuth().user;
   const [ratings, setRatings] = useState<RatingSummary[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [followingCount, setFollowingCount] = useState(0);
 
   useEffect(() => {
@@ -42,6 +53,14 @@ export const DashboardPage = () => {
       })
       .catch(() => {
         setRatings([]);
+      });
+
+    void apiGet<{ items: Recommendation[] }>("/catalog/recommendations")
+      .then((payload) => {
+        setRecommendations(payload.items);
+      })
+      .catch(() => {
+        setRecommendations([]);
       });
 
     void apiGet<{ items: FollowingSummary[] }>("/social/following")
@@ -93,6 +112,67 @@ export const DashboardPage = () => {
           </Link>
         </div>
       </article>
+
+      <section className={`${cardClass} grid gap-5 lg:col-span-2`}>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
+              Recommendations
+            </p>
+            <h2 className="m-0 text-[clamp(1.6rem,2.4vw,2.4rem)] leading-[1.05]">
+              Songs to try next
+            </h2>
+          </div>
+          <Link className="font-semibold text-primary" to="/app/search">
+            Tune your taste
+          </Link>
+        </div>
+        {recommendations.length ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {recommendations.map((item) => (
+              <article
+                className="grid min-h-[210px] content-start gap-4 rounded-[18px] bg-white/4 p-4"
+                key={item.musicId}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="grid h-[64px] w-[64px] shrink-0 place-items-center overflow-hidden rounded-[16px] border border-foreground/10 bg-linear-to-br from-primary/22 via-white/5 to-secondary/24 text-center text-foreground">
+                    {item.artworkUrl ? (
+                      <img
+                        alt={`${item.title} cover`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        src={item.artworkUrl}
+                      />
+                    ) : (
+                      <span className="text-2xl font-bold">♪</span>
+                    )}
+                  </div>
+                  <div className="grid min-w-0 gap-1">
+                    <strong className="line-clamp-2 leading-tight">
+                      {item.title}
+                    </strong>
+                    <span className="line-clamp-2 text-sm text-foreground/74">
+                      {item.artistName}
+                      {item.albumTitle ? ` · ${item.albumTitle}` : ""}
+                    </span>
+                  </div>
+                </div>
+                <p className="m-0 line-clamp-2 text-sm leading-[1.5] text-foreground/74">
+                  {item.reason}
+                </p>
+                <span className="mt-auto w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold text-foreground">
+                  Match {Math.round(item.score)}
+                </span>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="leading-[1.6] text-foreground/82">
+            Rate or favorite songs to personalize this list. Until then, popular
+            tracks will appear here when listeners add them.
+          </p>
+        )}
+      </section>
 
       <section className={`${cardClass} grid gap-5`}>
         <div className="flex flex-wrap items-center justify-between gap-4">

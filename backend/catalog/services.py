@@ -1,5 +1,20 @@
-from catalog.models import Album, Artist, Music
+from collections import defaultdict
+
+from django.db.models import Avg, Count, Q
+
+from catalog.models import (
+    Album,
+    AlbumRating,
+    Artist,
+    Favorite,
+    Music,
+    Rating,
+    SavedAlbum,
+)
 from catalog.providers import get_catalog_provider
+
+
+POSITIVE_RATING_MIN_SCORE = 4
 
 
 def search_catalog(*, query: str, result_type: str, page: int):
@@ -23,6 +38,165 @@ def import_catalog_item(*, source_provider: str, external_id: str, item_type: st
         return {"item": serialize_album(item)}
 
     return {"item": serialize_track(item)}
+
+
+def recommend_songs_for_user(*, user, limit: int = 8):
+    excluded_music_ids = set(
+        Rating.objects.filter(user=user).values_list("music_id", flat=True)
+    )
+    excluded_music_ids.update(
+        Favorite.objects.filter(user=user).values_list("music_id", flat=True)
+    )
+
+    positive_ratings = list(
+        Rating.objects.filter(user=user, score__gte=POSITIVE_RATING_MIN_SCORE)
+        .select_related("music", "music__primary_artist", "music__album")
+        .order_by("-updated_at")
+    )
+    favorites = list(
+        Favorite.objects.filter(user=user)
+        .select_related("music", "music__primary_artist", "music__album")
+        .order_by("-created_at")
+    )
+    album_ratings = list(
+        AlbumRating.objects.filter(user=user, score__gte=POSITIVE_RATING_MIN_SCORE)
+        .select_related("album", "album__primary_artist")
+        .order_by("-updated_at")
+    )
+    saved_albums = list(
+        SavedAlbum.objects.filter(user=user)
+        .select_related("album", "album__primary_artist")
+        .order_by("-created_at")
+    )
+
+    scores: dict[int, float] = defaultdict(float)
+    reasons: dict[int, str] = {}
+    reason_priorities: dict[int, int] = defaultdict(int)
+
+    artist_weights: dict[int, float] = defaultdict(float)
+    artist_names: dict[int, str] = {}
+    album_weights: dict[int, float] = defaultdict(float)
+    album_titles: dict[int, str] = {}
+    liked_music_ids = set()
+
+    for rating in positive_ratings:
+        music = rating.music
+        liked_music_ids.add(music.id)
+        artist_weights[music.primary_artist_id] += rating.score
+        artist_names[music.primary_artist_id] = music.primary_artist.name
+        if music.album_id:
+            album_weights[music.album_id] += rating.score
+            album_titles[music.album_id] = music.album.title
+
+    for favorite in favorites:
+        music = favorite.music
+        liked_music_ids.add(music.id)
+        artist_weights[music.primary_artist_id] += 5
+        artist_names[music.primary_artist_id] = music.primary_artist.name
+        if music.album_id:
+            album_weights[music.album_id] += 5
+            album_titles[music.album_id] = music.album.title
+
+    for album_rating in album_ratings:
+        album = album_rating.album
+        artist_weights[album.primary_artist_id] += album_rating.score
+        artist_names[album.primary_artist_id] = album.primary_artist.name
+        album_weights[album.id] += album_rating.score
+        album_titles[album.id] = album.title
+
+    for saved_album in saved_albums:
+        album = saved_album.album
+        artist_weights[album.primary_artist_id] += 3
+        artist_names[album.primary_artist_id] = album.primary_artist.name
+        album_weights[album.id] += 3
+        album_titles[album.id] = album.title
+
+    if artist_weights or album_weights:
+        affinity_candidates = (
+            Music.objects.filter(
+                Q(primary_artist_id__in=artist_weights.keys())
+                | Q(album_id__in=album_weights.keys())
+            )
+            .exclude(id__in=excluded_music_ids)
+            .select_related("primary_artist", "album")
+        )
+        for music in affinity_candidates:
+            artist_weight = artist_weights.get(music.primary_artist_id, 0)
+            album_weight = album_weights.get(music.album_id, 0)
+            if artist_weight:
+                _add_recommendation(
+                    scores=scores,
+                    reasons=reasons,
+                    reason_priorities=reason_priorities,
+                    music_id=music.id,
+                    score=artist_weight * 2,
+                    reason=f"Because you liked {artist_names[music.primary_artist_id]}",
+                    priority=20,
+                )
+            if album_weight and music.album_id:
+                _add_recommendation(
+                    scores=scores,
+                    reasons=reasons,
+                    reason_priorities=reason_priorities,
+                    music_id=music.id,
+                    score=album_weight * 2.5,
+                    reason=f"More from {album_titles[music.album_id]}",
+                    priority=25,
+                )
+
+    if liked_music_ids:
+        similar_user_ids = _similar_user_ids(user=user, music_ids=liked_music_ids)
+        if similar_user_ids:
+            _score_collaborative_candidates(
+                user_ids=similar_user_ids,
+                excluded_music_ids=excluded_music_ids,
+                scores=scores,
+                reasons=reasons,
+                reason_priorities=reason_priorities,
+            )
+
+    if len(scores) < limit:
+        _score_popular_candidates(
+            excluded_music_ids=excluded_music_ids,
+            scores=scores,
+            reasons=reasons,
+            reason_priorities=reason_priorities,
+        )
+
+    if not scores:
+        return {"items": []}
+
+    music_by_id = Music.objects.select_related("primary_artist", "album").in_bulk(
+        scores.keys()
+    )
+    ranked_music_ids = sorted(
+        scores.keys(),
+        key=lambda music_id: (
+            -scores[music_id],
+            music_by_id[music_id].title.lower() if music_id in music_by_id else "",
+        ),
+    )
+
+    items = []
+    for music_id in ranked_music_ids:
+        music = music_by_id.get(music_id)
+        if music is None:
+            continue
+        items.append(
+            {
+                "musicId": music.id,
+                "title": music.title,
+                "artistName": music.primary_artist.name,
+                "albumTitle": music.album.title if music.album_id else "",
+                "artworkUrl": music.cover_url,
+                "score": round(scores[music_id], 2),
+                "reason": reasons.get(music_id, "Recommended from your taste"),
+            }
+        )
+        if len(items) >= limit:
+            break
+
+    return {"items": items}
 
 
 def ensure_catalog_item(*, source_provider: str, external_id: str, item_type: str):
@@ -103,6 +277,117 @@ def _get_existing_item(*, source_provider: str, external_id: str, item_type: str
         )
 
     raise ValueError("Unsupported item type.")
+
+
+def _add_recommendation(
+    *,
+    scores,
+    reasons,
+    reason_priorities,
+    music_id: int,
+    score: float,
+    reason: str,
+    priority: int,
+):
+    scores[music_id] += score
+    if priority > reason_priorities[music_id]:
+        reasons[music_id] = reason
+        reason_priorities[music_id] = priority
+
+
+def _similar_user_ids(*, user, music_ids: set[int]):
+    favorite_user_ids = Favorite.objects.filter(music_id__in=music_ids).exclude(
+        user=user
+    )
+    rating_user_ids = Rating.objects.filter(
+        music_id__in=music_ids,
+        score__gte=POSITIVE_RATING_MIN_SCORE,
+    ).exclude(user=user)
+
+    return set(favorite_user_ids.values_list("user_id", flat=True)) | set(
+        rating_user_ids.values_list("user_id", flat=True)
+    )
+
+
+def _score_collaborative_candidates(
+    *,
+    user_ids: set[int],
+    excluded_music_ids: set[int],
+    scores,
+    reasons,
+    reason_priorities,
+):
+    favorite_candidates = (
+        Favorite.objects.filter(user_id__in=user_ids)
+        .exclude(music_id__in=excluded_music_ids)
+        .values("music_id")
+        .annotate(listener_count=Count("user_id", distinct=True))
+    )
+    for candidate in favorite_candidates:
+        _add_recommendation(
+            scores=scores,
+            reasons=reasons,
+            reason_priorities=reason_priorities,
+            music_id=candidate["music_id"],
+            score=candidate["listener_count"] * 6,
+            reason="Liked by listeners with similar taste",
+            priority=30,
+        )
+
+    rating_candidates = (
+        Rating.objects.filter(
+            user_id__in=user_ids,
+            score__gte=POSITIVE_RATING_MIN_SCORE,
+        )
+        .exclude(music_id__in=excluded_music_ids)
+        .values("music_id")
+        .annotate(listener_count=Count("user_id", distinct=True), avg_score=Avg("score"))
+    )
+    for candidate in rating_candidates:
+        _add_recommendation(
+            scores=scores,
+            reasons=reasons,
+            reason_priorities=reason_priorities,
+            music_id=candidate["music_id"],
+            score=float(candidate["avg_score"]) * candidate["listener_count"],
+            reason="Highly rated by listeners with similar taste",
+            priority=30,
+        )
+
+
+def _score_popular_candidates(*, excluded_music_ids, scores, reasons, reason_priorities):
+    popular_favorites = (
+        Favorite.objects.exclude(music_id__in=excluded_music_ids)
+        .values("music_id")
+        .annotate(listener_count=Count("user_id", distinct=True))
+    )
+    for candidate in popular_favorites:
+        _add_recommendation(
+            scores=scores,
+            reasons=reasons,
+            reason_priorities=reason_priorities,
+            music_id=candidate["music_id"],
+            score=candidate["listener_count"] * 3,
+            reason="Popular with listeners",
+            priority=10,
+        )
+
+    popular_ratings = (
+        Rating.objects.filter(score__gte=POSITIVE_RATING_MIN_SCORE)
+        .exclude(music_id__in=excluded_music_ids)
+        .values("music_id")
+        .annotate(listener_count=Count("user_id", distinct=True), avg_score=Avg("score"))
+    )
+    for candidate in popular_ratings:
+        _add_recommendation(
+            scores=scores,
+            reasons=reasons,
+            reason_priorities=reason_priorities,
+            music_id=candidate["music_id"],
+            score=float(candidate["avg_score"]) * candidate["listener_count"],
+            reason="Popular with listeners",
+            priority=10,
+        )
 
 
 def _import_album(item: dict[str, object]):

@@ -221,6 +221,95 @@ class CatalogApiTests(TestCase):
         self.assertEqual(response.json()["items"][0]["score"], 4)
         self.assertEqual(response.json()["items"][0]["review"], "Memorable.")
 
+    def test_recommendations_require_authentication(self):
+        response = self.client.get("/api/catalog/recommendations")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_recommendations_use_artist_affinity_and_exclude_interacted_tracks(self):
+        self.client.force_login(self.user)
+        artist = self._create_artist("Affinity Artist", "affinity-artist")
+        liked = self._create_music_item("Known Song", "known-song", artist=artist)
+        candidate = self._create_music_item(
+            "Recommended Song", "recommended-song", artist=artist
+        )
+        Rating.objects.create(user=self.user, music=liked, score=5)
+
+        response = self.client.get("/api/catalog/recommendations")
+
+        self.assertEqual(response.status_code, 200)
+        item_titles = [item["title"] for item in response.json()["items"]]
+        self.assertIn(candidate.title, item_titles)
+        self.assertNotIn(liked.title, item_titles)
+        self.assertEqual(response.json()["items"][0]["musicId"], candidate.id)
+        self.assertEqual(
+            response.json()["items"][0]["reason"],
+            "Because you liked Affinity Artist",
+        )
+
+    def test_recommendations_use_collaborative_overlap(self):
+        self.client.force_login(self.user)
+        peer = get_user_model().objects.create_user(
+            email="peer@example.com",
+            password="StrongPass123!",
+        )
+        artist = self._create_artist("Overlap Artist", "overlap-artist")
+        shared = self._create_music_item("Shared Favorite", "shared-favorite", artist)
+        candidate = self._create_music_item("Peer Pick", "peer-pick", artist)
+        Favorite.objects.create(user=self.user, music=shared)
+        Favorite.objects.create(user=peer, music=shared)
+        Rating.objects.create(user=peer, music=candidate, score=5)
+
+        response = self.client.get("/api/catalog/recommendations")
+
+        self.assertEqual(response.status_code, 200)
+        items = response.json()["items"]
+        self.assertEqual(items[0]["musicId"], candidate.id)
+        self.assertEqual(
+            items[0]["reason"], "Highly rated by listeners with similar taste"
+        )
+
+    def test_recommendations_fall_back_to_popular_tracks_for_cold_start(self):
+        self.client.force_login(self.user)
+        listener = get_user_model().objects.create_user(
+            email="popular@example.com",
+            password="StrongPass123!",
+        )
+        artist = self._create_artist("Popular Artist", "popular-artist")
+        popular = self._create_music_item("Popular Song", "popular-song", artist)
+        Favorite.objects.create(user=listener, music=popular)
+
+        response = self.client.get("/api/catalog/recommendations")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["musicId"], popular.id)
+        self.assertEqual(response.json()["items"][0]["reason"], "Popular with listeners")
+
+    def test_recommendations_respect_limit(self):
+        self.client.force_login(self.user)
+        listener = get_user_model().objects.create_user(
+            email="limit@example.com",
+            password="StrongPass123!",
+        )
+        artist = self._create_artist("Limit Artist", "limit-artist")
+        first = self._create_music_item("First Popular", "first-popular", artist)
+        second = self._create_music_item("Second Popular", "second-popular", artist)
+        Favorite.objects.create(user=listener, music=first)
+        Favorite.objects.create(user=listener, music=second)
+
+        response = self.client.get("/api/catalog/recommendations", {"limit": 1})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["items"]), 1)
+
+    def test_recommendations_reject_invalid_limit(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get("/api/catalog/recommendations", {"limit": 21})
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["errors"]["limit"], "Limit must be 20 or less.")
+
     def test_clear_rating_removes_current_user_rating(self):
         self.client.force_login(self.user)
         music = self._create_music()
@@ -525,6 +614,22 @@ class CatalogApiTests(TestCase):
             source_provider="musicbrainz",
             external_id="release-1",
             release_date="2015-09-25",
+        )
+
+    def _create_artist(self, name, external_id):
+        return Artist.objects.create(
+            name=name,
+            source_provider="musicbrainz",
+            external_id=external_id,
+        )
+
+    def _create_music_item(self, title, external_id, artist, album=None):
+        return Music.objects.create(
+            title=title,
+            primary_artist=artist,
+            album=album,
+            source_provider="musicbrainz",
+            external_id=external_id,
         )
 
 
