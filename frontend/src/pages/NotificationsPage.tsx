@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { ApiError, apiGet, apiRequest } from "../lib/api";
@@ -28,19 +29,22 @@ const readError = (error: unknown) => {
   return "Unexpected error. Please try again.";
 };
 
-const describeNotification = (item: NotificationItem) => {
+const describeNotification = (
+  item: NotificationItem,
+  t: (key: string, options?: Record<string, string>) => string,
+) => {
   const name =
     item.actor.displayName ||
-    (item.actor.username ? `@${item.actor.username}` : "Someone");
+    (item.actor.username ? `@${item.actor.username}` : t("someone"));
   switch (item.kind) {
     case "new_follower":
-      return `${name} started following you.`;
+      return t("notification_new_follower", { name });
     case "comment_on_rating":
-      return `${name} commented on your review.`;
+      return t("notification_comment_on_rating", { name });
     case "reply_to_comment":
-      return `${name} replied to your comment.`;
+      return t("notification_reply_to_comment", { name });
     default:
-      return "New activity.";
+      return t("notification_new_activity");
   }
 };
 
@@ -50,6 +54,7 @@ const ghostButtonClass =
   "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 export const NotificationsPage = () => {
+  const { t } = useTranslation();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -108,10 +113,10 @@ export const NotificationsPage = () => {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Activity
+              {t("activity")}
             </p>
             <h1 className="m-0 text-[clamp(1.8rem,3vw,2.6rem)] leading-tight">
-              Notifications
+              {t("notifications")}
             </h1>
           </div>
           {items.some((n) => !n.read) ? (
@@ -120,7 +125,7 @@ export const NotificationsPage = () => {
               onClick={() => void markAllRead()}
               type="button"
             >
-              Mark all read
+              {t("mark_all_read")}
             </button>
           ) : null}
         </div>
@@ -130,13 +135,10 @@ export const NotificationsPage = () => {
           </p>
         ) : null}
         {status === "loading" ? (
-          <p className="mt-6 text-foreground/72">Loading…</p>
+          <p className="mt-6 text-foreground/72">{t("loading")}</p>
         ) : null}
         {status === "ready" && items.length === 0 ? (
-          <p className="mt-6 text-foreground/72">
-            No notifications yet. Follow people or get comments on your reviews
-            to see activity here.
-          </p>
+          <p className="mt-6 text-foreground/72">{t("no_notifications")}</p>
         ) : null}
         <ul className="mt-6 grid list-none gap-3 p-0">
           {items.map((item) => (
@@ -149,21 +151,21 @@ export const NotificationsPage = () => {
                 }`}
               >
                 <p className="m-0 leading-relaxed text-foreground/88">
-                  {describeNotification(item)}
+                  {describeNotification(item, t)}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <Link
                     className="text-sm font-semibold text-primary"
                     to={`/app/people/${item.actor.id}`}
                   >
-                    View profile
+                    {t("view_profile")}
                   </Link>
                   {item.ratingId && item.kind !== "new_follower" ? (
                     <Link
                       className="text-sm font-semibold text-primary"
                       to="/app/profile"
                     >
-                      Your reviews
+                      {t("your_reviews")}
                     </Link>
                   ) : null}
                   {!item.read ? (
@@ -172,7 +174,7 @@ export const NotificationsPage = () => {
                       onClick={() => void markRead(item.id)}
                       type="button"
                     >
-                      Mark read
+                      {t("mark_read")}
                     </button>
                   ) : null}
                 </div>

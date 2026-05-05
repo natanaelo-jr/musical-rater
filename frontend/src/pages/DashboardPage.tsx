@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../auth/useAuth";
@@ -37,6 +38,7 @@ const ghostButtonClass =
   "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 export const DashboardPage = () => {
+  const { t } = useTranslation();
   const user = useAuth().user;
   const [ratings, setRatings] = useState<RatingSummary[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -79,20 +81,20 @@ export const DashboardPage = () => {
   const needsProfileSetup = !user.username || !user.bio || !user.avatarUrl;
   const primaryAction = needsProfileSetup ? "/app/profile" : "/app/search";
   const primaryLabel = needsProfileSetup
-    ? "Finish Profile Setup"
-    : "Search Catalog";
+    ? t("finish_profile_setup")
+    : t("search_catalog");
   const introCopy = needsProfileSetup
-    ? "Finish your profile first so the app can show a complete identity, then jump into search."
-    : "Your account is ready. Search the catalog, save what matters, and keep moving toward ratings.";
+    ? t("intro_copy_incomplete")
+    : t("intro_copy_ready");
 
   return (
     <section className="mx-auto grid max-w-[1120px] gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.8fr)]">
       <article className={`${cardClass} p-10 md:p-10 lg:col-span-2`}>
         <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-          Private dashboard
+          {t("private_dashboard")}
         </p>
         <h1 className="m-0 text-[clamp(2rem,4vw,4.5rem)] leading-[0.98]">
-          {user.displayName}, your workspace is ready.
+          {t("dashboard_title", { name: user.displayName })}
         </h1>
         <p className="mt-5 max-w-[48rem] text-[1.05rem] leading-[1.7] text-foreground/82">
           {introCopy}
@@ -102,13 +104,13 @@ export const DashboardPage = () => {
             {primaryLabel}
           </Link>
           <Link className={ghostButtonClass} to="/app/people">
-            Find People
+            {t("find_people")}
           </Link>
           <Link
             className={ghostButtonClass}
             to={needsProfileSetup ? "/app/search" : "/app/profile"}
           >
-            {needsProfileSetup ? "Browse First" : "Edit Profile"}
+            {needsProfileSetup ? t("browse_first") : t("edit_profile")}
           </Link>
         </div>
       </article>
@@ -117,14 +119,14 @@ export const DashboardPage = () => {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Recommendations
+              {t("recommendations")}
             </p>
             <h2 className="m-0 text-[clamp(1.6rem,2.4vw,2.4rem)] leading-[1.05]">
-              Songs to try next
+              {t("songs_to_try_next")}
             </h2>
           </div>
           <Link className="font-semibold text-primary" to="/app/search">
-            Tune your taste
+            {t("tune_your_taste")}
           </Link>
         </div>
         {recommendations.length ? (
@@ -161,15 +163,14 @@ export const DashboardPage = () => {
                   {item.reason}
                 </p>
                 <span className="mt-auto w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold text-foreground">
-                  Match {Math.round(item.score)}
+                  {t("match_score", { score: Math.round(item.score) })}
                 </span>
               </article>
             ))}
           </div>
         ) : (
           <p className="leading-[1.6] text-foreground/82">
-            Rate or favorite songs to personalize this list. Until then, popular
-            tracks will appear here when listeners add them.
+            {t("recommendations_empty")}
           </p>
         )}
       </section>
@@ -178,14 +179,14 @@ export const DashboardPage = () => {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Recently rated
+              {t("recently_rated")}
             </p>
             <h2 className="m-0 text-[clamp(1.6rem,2.4vw,2.4rem)] leading-[1.05]">
-              Your latest scores
+              {t("your_latest_scores")}
             </h2>
           </div>
           <Link className="font-semibold text-primary" to="/app/search">
-            Rate more
+            {t("rate_more")}
           </Link>
         </div>
         {ratings.length ? (
@@ -215,49 +216,58 @@ export const DashboardPage = () => {
           </div>
         ) : (
           <p className="leading-[1.6] text-foreground/82">
-            Rate an imported track and it will land here.
+            {t("empty_recent_ratings")}
           </p>
         )}
       </section>
 
       <aside className={cardClass}>
         <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-          Next actions
+          {t("next_actions")}
         </p>
         <dl className="mt-5 grid gap-[18px]">
           <div className="rounded-[18px] bg-white/4 p-4">
-            <dt className="mb-2 text-sm text-primary">Search</dt>
+            <dt className="mb-2 text-sm text-primary">
+              {t("action_search_title")}
+            </dt>
             <dd className="m-0 leading-[1.6] text-foreground/82">
-              Look up songs and albums in the shared catalog.
+              {t("action_search_desc")}
             </dd>
           </div>
           <div className="rounded-[18px] bg-white/4 p-4">
-            <dt className="mb-2 text-sm text-primary">Save</dt>
+            <dt className="mb-2 text-sm text-primary">
+              {t("action_save_title")}
+            </dt>
             <dd className="m-0 leading-[1.6] text-foreground/82">
-              Move selected results into your catalog when you want to keep
-              them.
+              {t("action_save_desc")}
             </dd>
           </div>
           <div className="rounded-[18px] bg-white/4 p-4">
-            <dt className="mb-2 text-sm text-primary">Profile status</dt>
+            <dt className="mb-2 text-sm text-primary">
+              {t("action_profile_status_title")}
+            </dt>
             <dd className="m-0 leading-[1.6] text-foreground/82">
               {needsProfileSetup
-                ? "Complete your name, handle, avatar, and bio so your account feels finished."
+                ? t("action_profile_status_desc")
                 : user.username}
             </dd>
           </div>
           <div className="rounded-[18px] bg-white/4 p-4">
-            <dt className="mb-2 text-sm text-primary">Taste signal</dt>
+            <dt className="mb-2 text-sm text-primary">
+              {t("action_taste_title")}
+            </dt>
             <dd className="m-0 leading-[1.6] text-foreground/82">
-              {user.bio || "Tell us what you listen to."}
+              {user.bio || t("action_taste_desc_empty")}
             </dd>
           </div>
           <div className="rounded-[18px] bg-white/4 p-4">
-            <dt className="mb-2 text-sm text-primary">Following</dt>
+            <dt className="mb-2 text-sm text-primary">
+              {t("action_following_title")}
+            </dt>
             <dd className="m-0 leading-[1.6] text-foreground/82">
               {followingCount
-                ? `${followingCount} listener${followingCount === 1 ? "" : "s"}`
-                : "Find listeners to follow."}
+                ? t("following_count", { count: followingCount })
+                : t("action_following_desc")}
             </dd>
           </div>
         </dl>

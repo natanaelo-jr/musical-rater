@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
@@ -77,6 +78,7 @@ const artwork = (
 );
 
 export const ProfilePage = () => {
+  const { t } = useTranslation();
   const auth = useAuth();
   const user = auth.user;
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
@@ -148,7 +150,7 @@ export const ProfilePage = () => {
 
     try {
       await auth.updateProfile({ displayName, username, avatarUrl, bio });
-      setSuccess("Profile updated.");
+      setSuccess(t("profile_updated"));
       setShowSettings(false);
     } catch (error) {
       const nextErrors = toFieldErrors(error);
@@ -199,16 +201,16 @@ export const ProfilePage = () => {
 
           <div className="min-w-0">
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              My profile
+              {t("my_profile")}
             </p>
             <h1 className="m-0 overflow-hidden text-ellipsis text-[clamp(2.2rem,5vw,5rem)] leading-[0.96]">
-              {user.displayName || "Your profile"}
+              {user.displayName || t("your_profile")}
             </h1>
             <p className="mt-3 text-[1.05rem] text-foreground/72">
               {user.username ? `@${user.username}` : user.email}
             </p>
             <p className="mt-5 max-w-[48rem] text-[1.05rem] leading-[1.7] text-foreground/84">
-              {user.bio || "Add a short bio so people understand your taste."}
+              {user.bio || t("add_bio_prompt")}
             </p>
           </div>
 
@@ -217,15 +219,15 @@ export const ProfilePage = () => {
             onClick={() => setShowSettings((current) => !current)}
             type="button"
           >
-            {showSettings ? "Close Settings" : "Profile Settings"}
+            {showSettings ? t("close_settings") : t("profile_settings")}
           </button>
         </div>
 
         <dl className="grid gap-3 sm:grid-cols-3">
           {[
-            ["Reviews", reviews.length],
-            ["Albums", savedAlbums.length],
-            ["Favorites", favorites.length],
+            [t("reviews"), reviews.length],
+            [t("albums"), savedAlbums.length],
+            [t("favorites"), favorites.length],
           ].map(([label, value]) => (
             <div className="rounded-[20px] bg-white/4 p-5" key={label}>
               <dt className="mb-2 text-sm text-primary">{label}</dt>
@@ -240,10 +242,10 @@ export const ProfilePage = () => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-                Settings
+                {t("settings")}
               </p>
               <h2 className="m-0 text-[clamp(1.7rem,3vw,3rem)] leading-[1]">
-                Edit the details people see on your profile.
+                {t("settings_title")}
               </h2>
             </div>
           </div>
@@ -251,8 +253,8 @@ export const ProfilePage = () => {
             <Field
               autoComplete="name"
               error={errors.display_name}
-              helperText="Shown in the app and on profile surfaces."
-              label="Display name"
+              helperText={t("profile_display_name_help")}
+              label={t("display_name_label")}
               name="display_name"
               onChange={setDisplayName}
               value={displayName}
@@ -260,22 +262,22 @@ export const ProfilePage = () => {
             <Field
               autoComplete="username"
               error={errors.username}
-              helperText="Use the handle people will recognize."
-              label="Username"
+              helperText={t("username_help")}
+              label={t("username_label")}
               name="username"
               onChange={setUsername}
-              placeholder="stage-door-fan..."
+              placeholder={t("username_placeholder")}
               spellCheck={false}
               value={username}
             />
             <Field
               autoComplete="url"
               error={errors.avatar_url}
-              helperText="Paste a direct link to an image file."
-              label="Avatar URL"
+              helperText={t("avatar_url_help")}
+              label={t("avatar_url_label")}
               name="avatar_url"
               onChange={setAvatarUrl}
-              placeholder="https://example.com/avatar.jpg..."
+              placeholder={t("avatar_url_placeholder")}
               spellCheck={false}
               type="url"
               value={avatarUrl}
@@ -283,11 +285,11 @@ export const ProfilePage = () => {
             <TextAreaField
               autoComplete="off"
               error={errors.bio}
-              helperText="Share what you like to rate, collect, or revisit."
-              label="Bio"
+              helperText={t("bio_help")}
+              label={t("bio_label")}
               name="bio"
               onChange={setBio}
-              placeholder="Share your favorite cast recordings..."
+              placeholder={t("bio_placeholder")}
               value={bio}
             />
             {errors.form ? (
@@ -305,7 +307,7 @@ export const ProfilePage = () => {
               disabled={submitting}
               type="submit"
             >
-              {submitting ? "Saving..." : "Save Profile"}
+              {submitting ? t("saving") : t("save_profile")}
             </button>
           </form>
         </section>
@@ -315,14 +317,14 @@ export const ProfilePage = () => {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Saved albums
+              {t("saved_albums")}
             </p>
             <h2 className="m-0 text-[clamp(1.6rem,3vw,3rem)] leading-[1.02]">
-              Albums on your profile
+              {t("albums_on_profile")}
             </h2>
           </div>
           <span className="text-sm text-foreground/66">
-            Manage this section from here.
+            {t("manage_section")}
           </span>
         </div>
 
@@ -355,8 +357,8 @@ export const ProfilePage = () => {
                     type="button"
                   >
                     {removingAlbumId === album.albumId
-                      ? "Removing..."
-                      : "Remove from Profile"}
+                      ? t("removing")
+                      : t("remove_from_profile")}
                   </button>
                 </article>
               ))}
@@ -369,13 +371,13 @@ export const ProfilePage = () => {
                 }
                 type="button"
               >
-                Load More Albums
+                {t("load_more_albums")}
               </button>
             ) : null}
           </>
         ) : (
           <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-            Add imported albums from search and they will appear here.
+            {t("empty_saved_albums")}
           </div>
         )}
       </section>
@@ -384,10 +386,10 @@ export const ProfilePage = () => {
         <section className={`${cardClass} grid gap-5`}>
           <div>
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Latest reviews
+              {t("latest_reviews")}
             </p>
             <h2 className="m-0 text-[clamp(1.6rem,3vw,3rem)] leading-[1.02]">
-              Recent thoughts
+              {t("recent_thoughts")}
             </h2>
           </div>
           {reviews.length ? (
@@ -401,7 +403,7 @@ export const ProfilePage = () => {
                     {artwork(rating, "h-16 w-16")}
                     <div className="min-w-0">
                       <p className="mb-1 text-[0.7rem] uppercase tracking-[0.12em] text-primary">
-                        {rating.kind === "album" ? "Album" : "Track"}
+                        {rating.kind === "album" ? t("album") : t("track")}
                       </p>
                       <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
                         {rating.title}
@@ -411,7 +413,7 @@ export const ProfilePage = () => {
                         {rating.albumTitle ? ` · ${rating.albumTitle}` : ""}
                       </p>
                       <p className="mt-3 line-clamp-3 leading-[1.6] text-foreground/82">
-                        {rating.review || "No written review yet."}
+                        {rating.review || t("no_written_review")}
                       </p>
                     </div>
                     <span className="h-fit w-fit rounded-full bg-secondary/16 px-3 py-2 text-sm font-semibold">
@@ -433,14 +435,13 @@ export const ProfilePage = () => {
                   }
                   type="button"
                 >
-                  Load More Reviews
+                  {t("load_more_reviews")}
                 </button>
               ) : null}
             </>
           ) : (
             <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-              Your latest reviews will appear here after you rate tracks or
-              albums from search.
+              {t("empty_reviews")}
             </div>
           )}
         </section>
@@ -448,10 +449,10 @@ export const ProfilePage = () => {
         <aside className={`${cardClass} grid content-start gap-5`}>
           <div>
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Favorites
+              {t("favorites")}
             </p>
             <h2 className="m-0 text-[clamp(1.6rem,2.4vw,2.4rem)] leading-[1.05]">
-              Profile pins
+              {t("profile_pins")}
             </h2>
           </div>
           {favorites.length ? (
@@ -475,7 +476,7 @@ export const ProfilePage = () => {
             </div>
           ) : (
             <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-              Favorite imported tracks from search to pin them here.
+              {t("empty_favorites")}
             </div>
           )}
         </aside>

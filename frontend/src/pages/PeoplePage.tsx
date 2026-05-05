@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { ApiError, apiGet, apiRequest } from "../lib/api";
@@ -27,12 +28,11 @@ const ghostButtonClass =
   "inline-flex items-center justify-center rounded-full bg-primary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 export const PeoplePage = () => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [people, setPeople] = useState<UserSummary[]>([]);
   const [status, setStatus] = useState<SearchStatus>("idle");
-  const [message, setMessage] = useState(
-    "Search for listeners by name, username, or email.",
-  );
+  const [message, setMessage] = useState(t("search_listeners_help"));
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const handleQueryChange = (value: string) => {
@@ -43,19 +43,19 @@ export const PeoplePage = () => {
     if (!trimmedQuery) {
       setPeople([]);
       setStatus("idle");
-      setMessage("Search for listeners by name, username, or email.");
+      setMessage(t("search_listeners_help"));
       return;
     }
 
     if (trimmedQuery.length < 2) {
       setPeople([]);
       setStatus("error");
-      setMessage("Use at least 2 characters to search.");
+      setMessage(t("min_chars_search"));
       return;
     }
 
     setStatus("loading");
-    setMessage("Looking for listeners...");
+    setMessage(t("searching_listeners"));
   };
 
   useEffect(() => {
@@ -74,8 +74,8 @@ export const PeoplePage = () => {
           setStatus("ready");
           setMessage(
             payload.items.length
-              ? `${payload.items.length} listener${payload.items.length === 1 ? "" : "s"} found.`
-              : "No listeners found for this search.",
+              ? t("listeners_found", { count: payload.items.length })
+              : t("no_listeners_found"),
           );
         })
         .catch((error: unknown) => {
@@ -88,7 +88,7 @@ export const PeoplePage = () => {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [query]);
+  }, [query, t]);
 
   const setFollowing = (userId: string, isFollowing: boolean) => {
     setPeople((current) =>
@@ -107,7 +107,7 @@ export const PeoplePage = () => {
         body: JSON.stringify({}),
       });
       setFollowing(person.id, true);
-      setMessage(`You are following ${person.displayName}.`);
+      setMessage(t("following_user", { name: person.displayName }));
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -123,7 +123,7 @@ export const PeoplePage = () => {
         method: "DELETE",
       });
       setFollowing(person.id, false);
-      setMessage(`You stopped following ${person.displayName}.`);
+      setMessage(t("unfollowed_user", { name: person.displayName }));
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -137,24 +137,26 @@ export const PeoplePage = () => {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              People
+              {t("nav_people")}
             </p>
             <h1 className="m-0 text-[clamp(2rem,4vw,4rem)] leading-[0.98]">
-              Find listeners to follow.
+              {t("people_title")}
             </h1>
           </div>
           <Link className="font-semibold text-primary" to="/app">
-            Back to dashboard
+            {t("back_to_dashboard")}
           </Link>
         </div>
 
         <label className="mt-8 grid gap-2.5" htmlFor="people-search">
-          <span className="text-sm text-primary">Search listeners</span>
+          <span className="text-sm text-primary">
+            {t("search_listeners_label")}
+          </span>
           <input
             className="w-full rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             id="people-search"
             onChange={(event) => handleQueryChange(event.target.value)}
-            placeholder="Search by name, username, or email"
+            placeholder={t("search_listeners_placeholder")}
             type="search"
             value={query}
           />
@@ -193,7 +195,9 @@ export const PeoplePage = () => {
                   {person.displayName}
                 </Link>
                 <span className="text-foreground/72">
-                  {person.username ? `@${person.username}` : "No username yet"}
+                  {person.username
+                    ? `@${person.username}`
+                    : t("no_username_yet")}
                 </span>
                 {person.bio ? (
                   <p className="m-0 leading-[1.6] text-foreground/82">
@@ -214,17 +218,17 @@ export const PeoplePage = () => {
                 type="button"
               >
                 {updatingId === person.id
-                  ? "Saving..."
+                  ? t("saving")
                   : person.isFollowing
-                    ? "Following"
-                    : "Follow"}
+                    ? t("btn_following")
+                    : t("btn_follow")}
               </button>
             </article>
           ))}
 
           {status === "loading" ? (
             <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-              Searching listeners...
+              {t("searching_listeners")}
             </div>
           ) : null}
         </div>

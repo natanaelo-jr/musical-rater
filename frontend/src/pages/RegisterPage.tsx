@@ -1,11 +1,13 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 
 import { toFieldErrors } from "../auth/authErrors";
 import { useAuth } from "../auth/useAuth";
 import { focusFirstFieldError } from "../components/formUtils";
 import { Field } from "../components/forms";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
 const shellClass =
   "grid min-h-screen items-center bg-auth-shell px-5 py-8 text-foreground sm:px-8";
@@ -15,6 +17,7 @@ const primaryButtonClass =
   "inline-flex items-center justify-center rounded-full bg-linear-to-br from-primary to-secondary px-[22px] py-[14px] font-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
 export const RegisterPage = () => {
+  const { t } = useTranslation();
   const auth = useAuth();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState("");
@@ -43,35 +46,37 @@ export const RegisterPage = () => {
   return (
     <main className={shellClass}>
       <section className={cardClass}>
+        <div className="mb-6 flex justify-end">
+          <LanguageSwitcher />
+        </div>
         <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-          Create profile
+          {t("create_profile")}
         </p>
         <h1 className="m-0 text-[clamp(2rem,3vw,3rem)] leading-[0.98]">
-          Create your account and start building your musical library.
+          {t("register_title")}
         </h1>
         <p className="mt-4 leading-[1.6] text-foreground/82">
-          After sign-up, your first step will be finding albums or tracks to
-          save into your catalog.
+          {t("register_lede")}
         </p>
         <form className="mt-7 grid gap-[18px]" onSubmit={submit}>
           <Field
             autoComplete="name"
             error={errors.display_name}
-            helperText="Shown inside the app so your account feels recognizable."
-            label="Display name"
+            helperText={t("display_name_help")}
+            label={t("display_name_label")}
             name="display_name"
             onChange={setDisplayName}
-            placeholder="Broadway fan..."
+            placeholder={t("display_name_placeholder")}
             value={displayName}
           />
           <Field
             autoComplete="email"
             error={errors.email}
-            helperText="Use a working email so you can sign back in later."
-            label="Email"
+            helperText={t("register_email_help")}
+            label={t("email_label")}
             name="email"
             onChange={setEmail}
-            placeholder="you@example.com..."
+            placeholder={t("email_placeholder")}
             spellCheck={false}
             type="email"
             value={email}
@@ -79,11 +84,11 @@ export const RegisterPage = () => {
           <Field
             autoComplete="new-password"
             error={errors.password}
-            helperText="Use at least 8 characters."
-            label="Password"
+            helperText={t("register_password_help")}
+            label={t("password_label")}
             name="password"
             onChange={setPassword}
-            placeholder="At least 8 characters..."
+            placeholder={t("password_placeholder")}
             type="password"
             value={password}
           />
@@ -97,16 +102,16 @@ export const RegisterPage = () => {
             disabled={submitting}
             type="submit"
           >
-            {submitting ? "Creating Account..." : "Create Account"}
+            {submitting ? t("creating_account") : t("create_account")}
           </button>
         </form>
         <p className="mt-4 leading-[1.6] text-foreground/82">
-          Already registered?{" "}
+          {t("already_registered")}{" "}
           <Link
             className="font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             to="/login"
           >
-            Sign In
+            {t("sign_in")}
           </Link>
         </p>
       </section>

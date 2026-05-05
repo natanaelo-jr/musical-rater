@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ApiError, apiGet, apiRequest } from "../lib/api";
 
@@ -55,14 +56,11 @@ type SearchResponse = {
 };
 
 const filters: Array<{ label: string; value: SearchType }> = [
-  { label: "All", value: "all" },
-  { label: "Tracks", value: "track" },
-  { label: "Albums", value: "album" },
+  { label: "filter_all", value: "all" },
+  { label: "filter_tracks", value: "track" },
+  { label: "filter_albums", value: "album" },
 ];
 
-const initialCopy =
-  "Search by title, artist, album, or show, then save what belongs in your catalog.";
-const shortQueryCopy = "Use at least 2 characters to search the catalog.";
 const cardClass =
   "rounded-[28px] border border-foreground/12 bg-surface p-8 shadow-panel backdrop-blur-[20px]";
 const chipClass =
@@ -80,9 +78,9 @@ const readError = (error: unknown) => {
   return "Unexpected error. Please try again.";
 };
 
-const formatDate = (value?: string) => {
+const formatDate = (value: string | undefined, unknownRelease: string) => {
   if (!value) {
-    return "Unknown release";
+    return unknownRelease;
   }
 
   if (/^\d{4}$/.test(value)) {
@@ -113,6 +111,7 @@ const Artwork = ({
   sizeClass?: string;
   roundedClass?: string;
 }) => {
+  const { t } = useTranslation();
   const [failedUrl, setFailedUrl] = useState<string | undefined>();
   const shouldShowImage = item.artworkUrl && failedUrl !== item.artworkUrl;
 
@@ -134,7 +133,7 @@ const Artwork = ({
             {item.type === "album" ? "LP" : "♪"}
           </span>
           <span className="text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-foreground/64">
-            No cover
+            {t("no_cover")}
           </span>
         </div>
       )}
@@ -143,6 +142,7 @@ const Artwork = ({
 };
 
 export const SearchPage = () => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [type, setType] = useState<SearchType>("all");
   const [results, setResults] = useState<CatalogItem[]>([]);
@@ -150,7 +150,7 @@ export const SearchPage = () => {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
   );
-  const [message, setMessage] = useState(initialCopy);
+  const [message, setMessage] = useState(t("search_initial_copy"));
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [importingId, setImportingId] = useState<string | null>(null);
@@ -163,6 +163,8 @@ export const SearchPage = () => {
   const requestIdRef = useRef(0);
 
   const trimmedQuery = query.trim();
+  const initialCopy = t("search_initial_copy");
+  const shortQueryCopy = t("search_short_query");
 
   const resetSearchState = (
     nextStatus: "idle" | "error",
@@ -214,7 +216,7 @@ export const SearchPage = () => {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => {
       setStatus("loading");
-      setMessage(`Searching for "${trimmedQuery}"...`);
+      setMessage(t("searching_for", { query: trimmedQuery }));
       setResults([]);
       setSelectedItem(null);
       setHasNextPage(false);
@@ -236,10 +238,20 @@ export const SearchPage = () => {
           setPage(payload.page);
           setHasNextPage(payload.hasNextPage);
           setStatus("ready");
+          const searchType =
+            type === "all"
+              ? t("search_type_all")
+              : type === "track"
+                ? t("search_type_track")
+                : t("search_type_album");
           setMessage(
             payload.items.length
-              ? `Showing ${payload.items.length} result${payload.items.length === 1 ? "" : "s"} for ${type === "all" ? "all matches" : type === "track" ? "tracks" : "albums"}.${payload.hasNextPage ? " Load more to keep browsing." : ""}`
-              : `No matches for "${trimmedQuery}". Try a shorter title, another artist, or switch filters.`,
+              ? t("search_results_message", {
+                  count: payload.items.length,
+                  type: searchType,
+                  more: payload.hasNextPage ? t("load_more_hint") : "",
+                })
+              : t("no_matches_for", { query: trimmedQuery }),
           );
         })
         .catch((error: unknown) => {
@@ -260,7 +272,7 @@ export const SearchPage = () => {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [trimmedQuery, type]);
+  }, [trimmedQuery, type, t]);
 
   useEffect(() => {
     if (
@@ -445,7 +457,7 @@ export const SearchPage = () => {
 
         return current;
       });
-      setMessage(`"${importedItem.title}" is now saved in your catalog.`);
+      setMessage(t("import_success", { title: importedItem.title }));
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -461,7 +473,7 @@ export const SearchPage = () => {
     const nextPage = page + 1;
     const requestId = ++requestIdRef.current;
     setIsLoadingMore(true);
-    setMessage(`Loading more results for "${trimmedQuery}"...`);
+    setMessage(t("loading_more", { query: trimmedQuery }));
 
     try {
       const payload = await apiRequest<SearchResponse>(
@@ -494,8 +506,13 @@ export const SearchPage = () => {
       setStatus("ready");
       setMessage(
         payload.items.length
-          ? `Loaded page ${payload.page}. ${payload.hasNextPage ? " Load more to keep browsing." : " You have reached the end of the current results."}`
-          : "No additional results were returned.",
+          ? t("loaded_page", {
+              page: payload.page,
+              message: payload.hasNextPage
+                ? t("load_more_hint")
+                : t("end_results"),
+            })
+          : t("no_additional_results"),
       );
     } catch (error) {
       if (requestId !== requestIdRef.current) {
@@ -563,7 +580,7 @@ export const SearchPage = () => {
     }
 
     if (!draftScore) {
-      setMessage("Choose a score before saving your review.");
+      setMessage(t("choose_score"));
       return;
     }
 
@@ -583,7 +600,7 @@ export const SearchPage = () => {
       updateItemRating(item.id, payload.rating.score, payload.rating.review);
       setDraftScore(payload.rating.score);
       setDraftReview(payload.rating.review);
-      setMessage(`Saved your review for "${item.title}".`);
+      setMessage(t("review_saved", { title: item.title }));
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -605,7 +622,7 @@ export const SearchPage = () => {
       updateItemRating(item.id);
       setDraftScore(null);
       setDraftReview("");
-      setMessage(`Cleared your rating for "${item.title}".`);
+      setMessage(t("rating_cleared", { title: item.title }));
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -619,7 +636,7 @@ export const SearchPage = () => {
     }
 
     if (!draftScore) {
-      setMessage("Choose a score before saving your review.");
+      setMessage(t("choose_score"));
       return;
     }
 
@@ -639,7 +656,7 @@ export const SearchPage = () => {
       updateItemRating(item.id, payload.rating.score, payload.rating.review);
       setDraftScore(payload.rating.score);
       setDraftReview(payload.rating.review);
-      setMessage(`Saved your album review for "${item.title}".`);
+      setMessage(t("album_review_saved", { title: item.title }));
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -661,7 +678,7 @@ export const SearchPage = () => {
       updateItemRating(item.id);
       setDraftScore(null);
       setDraftReview("");
-      setMessage(`Cleared your album rating for "${item.title}".`);
+      setMessage(t("album_rating_cleared", { title: item.title }));
     } catch (error) {
       setMessage(readError(error));
     } finally {
@@ -688,8 +705,8 @@ export const SearchPage = () => {
       updateItemFavorite(item.id, nextFavorite);
       setMessage(
         nextFavorite
-          ? `"${item.title}" is in your favorites.`
-          : `Removed "${item.title}" from your favorites.`,
+          ? t("favorite_added", { title: item.title })
+          : t("favorite_removed", { title: item.title }),
       );
     } catch (error) {
       setMessage(readError(error));
@@ -717,8 +734,8 @@ export const SearchPage = () => {
       updateItemSavedAlbum(item.id, nextSavedAlbum);
       setMessage(
         nextSavedAlbum
-          ? `"${item.title}" is on your profile albums.`
-          : `Removed "${item.title}" from your profile albums.`,
+          ? t("album_added_profile", { title: item.title })
+          : t("album_removed_profile", { title: item.title }),
       );
     } catch (error) {
       setMessage(readError(error));
@@ -732,7 +749,7 @@ export const SearchPage = () => {
       ? message
       : trimmedQuery.length < 2
         ? shortQueryCopy
-        : "No results loaded yet. Search for a title, artist, or album to begin.";
+        : t("no_results_loaded");
 
   const closeModal = () => {
     setSelectedItem(null);
@@ -759,10 +776,10 @@ export const SearchPage = () => {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Catalog search
+              {t("catalog_search")}
             </p>
             <h1 className="m-0 text-[clamp(2rem,4vw,4.5rem)] leading-[0.98]">
-              Find the songs and albums you want to rate next.
+              {t("search_page_title")}
             </h1>
             <p className="mt-4 leading-[1.6] text-foreground/82">
               {initialCopy}
@@ -771,14 +788,16 @@ export const SearchPage = () => {
         </div>
 
         <label className="grid gap-2.5" htmlFor="catalog-search">
-          <span className="text-sm text-primary">Search query</span>
+          <span className="text-sm text-primary">
+            {t("search_query_label")}
+          </span>
           <input
             autoComplete="off"
             className="w-full rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             id="catalog-search"
             name="catalog_search"
             onChange={(event) => handleQueryChange(event.target.value)}
-            placeholder="Search by song, album, artist, or show title..."
+            placeholder={t("search_placeholder")}
             spellCheck={false}
             type="search"
             value={query}
@@ -791,11 +810,11 @@ export const SearchPage = () => {
         >
           {trimmedQuery.length < 2 && trimmedQuery.length > 0
             ? shortQueryCopy
-            : "Try searches like Hadestown, Sondheim, or Original Broadway Cast."}
+            : t("search_examples")}
         </div>
 
         <div
-          aria-label="Search filters"
+          aria-label={t("search_filters")}
           className="flex flex-wrap gap-3"
           role="group"
         >
@@ -811,7 +830,7 @@ export const SearchPage = () => {
               onClick={() => handleTypeChange(filter.value)}
               type="button"
             >
-              {filter.label}
+              {t(filter.label)}
             </button>
           ))}
         </div>
@@ -834,7 +853,7 @@ export const SearchPage = () => {
         >
           {status === "loading" ? (
             <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-              Searching the catalog...
+              {t("searching_catalog")}
             </div>
           ) : null}
 
@@ -860,7 +879,7 @@ export const SearchPage = () => {
                       {item.artistName}
                     </span>
                     <span className="overflow-hidden text-ellipsis">
-                      {formatDate(item.releaseDate)}
+                      {formatDate(item.releaseDate, t("unknown_release"))}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-start justify-end gap-2 md:justify-self-end">
@@ -871,22 +890,25 @@ export const SearchPage = () => {
                           : "bg-white/8 text-foreground/78"
                       }`}
                     >
-                      {item.imported ? "Saved" : "Available"}
+                      {item.imported
+                        ? t("saved_status")
+                        : t("available_status")}
                     </span>
                     {item.myRating ? (
                       <span className="rounded-full bg-secondary/16 px-3 py-2 text-[0.78rem] font-semibold text-foreground">
-                        {item.type === "album" ? "Album " : ""}Rated{" "}
-                        {item.myRating}/5
+                        {item.type === "album"
+                          ? t("album_rated_badge", { score: item.myRating })
+                          : t("rated_badge", { score: item.myRating })}
                       </span>
                     ) : null}
                     {item.myFavorite ? (
                       <span className="rounded-full bg-primary/16 px-3 py-2 text-[0.78rem] font-semibold text-foreground">
-                        Favorite
+                        {t("favorite_badge")}
                       </span>
                     ) : null}
                     {item.mySavedAlbum ? (
                       <span className="rounded-full bg-primary/16 px-3 py-2 text-[0.78rem] font-semibold text-foreground">
-                        My Album
+                        {t("my_album_badge")}
                       </span>
                     ) : null}
                   </div>
@@ -908,7 +930,7 @@ export const SearchPage = () => {
               onClick={() => void loadMore()}
               type="button"
             >
-              {isLoadingMore ? "Loading More..." : "Load More"}
+              {isLoadingMore ? t("loading_more_button") : t("load_more")}
             </button>
           </div>
         ) : null}
@@ -936,7 +958,12 @@ export const SearchPage = () => {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-                      {selectedItem.type === "track" ? "Track" : "Album"} detail
+                      {t("detail_suffix", {
+                        type:
+                          selectedItem.type === "track"
+                            ? t("track")
+                            : t("album"),
+                      })}
                     </p>
                     <h2
                       className="m-0 text-[clamp(1.9rem,4vw,3.6rem)] leading-[0.98]"
@@ -949,7 +976,7 @@ export const SearchPage = () => {
                     </p>
                   </div>
                   <button
-                    aria-label="Close detail"
+                    aria-label={t("close_detail")}
                     className="grid min-h-[44px] min-w-[44px] place-items-center rounded-full border border-foreground/14 bg-white/5 text-xl font-bold text-foreground transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     onClick={closeModal}
                     type="button"
@@ -960,26 +987,39 @@ export const SearchPage = () => {
 
                 <dl className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-[18px] bg-white/4 p-4">
-                    <dt className="mb-2 text-sm text-primary">Release</dt>
+                    <dt className="mb-2 text-sm text-primary">
+                      {t("release")}
+                    </dt>
                     <dd className="m-0 leading-[1.6] text-foreground/82">
-                      {formatDate(selectedItem.releaseDate)}
+                      {formatDate(
+                        selectedItem.releaseDate,
+                        t("unknown_release"),
+                      )}
                     </dd>
                   </div>
                   <div className="rounded-[18px] bg-white/4 p-4">
-                    <dt className="mb-2 text-sm text-primary">Catalog</dt>
+                    <dt className="mb-2 text-sm text-primary">
+                      {t("catalog")}
+                    </dt>
                     <dd className="m-0 leading-[1.6] text-foreground/82">
-                      {selectedItem.imported ? "Saved" : "Not saved"}
+                      {selectedItem.imported
+                        ? t("saved_status")
+                        : t("not_saved")}
                     </dd>
                   </div>
                   <div className="rounded-[18px] bg-white/4 p-4">
-                    <dt className="mb-2 text-sm text-primary">Provider</dt>
+                    <dt className="mb-2 text-sm text-primary">
+                      {t("provider")}
+                    </dt>
                     <dd className="m-0 leading-[1.6] text-foreground/82">
                       {selectedItem.sourceProvider}
                     </dd>
                   </div>
                   {selectedItem.albumTitle ? (
                     <div className="rounded-[18px] bg-white/4 p-4">
-                      <dt className="mb-2 text-sm text-primary">Album</dt>
+                      <dt className="mb-2 text-sm text-primary">
+                        {t("album")}
+                      </dt>
                       <dd className="m-0 leading-[1.6] text-foreground/82">
                         {selectedItem.albumTitle}
                       </dd>
@@ -998,10 +1038,10 @@ export const SearchPage = () => {
                     type="button"
                   >
                     {selectedItem.imported
-                      ? "Saved to Catalog"
+                      ? t("saved_to_catalog")
                       : importingId === selectedItem.externalId
-                        ? "Saving..."
-                        : "Save to Catalog"}
+                        ? t("saving")
+                        : t("save_to_catalog")}
                   </button>
                   {selectedItem.type === "track" && selectedItem.imported ? (
                     <button
@@ -1015,10 +1055,10 @@ export const SearchPage = () => {
                       type="button"
                     >
                       {savingFavorite
-                        ? "Saving..."
+                        ? t("saving")
                         : selectedItem.myFavorite
-                          ? "Favorited"
-                          : "Add Favorite"}
+                          ? t("favorited")
+                          : t("add_favorite")}
                     </button>
                   ) : null}
                   {selectedItem.type === "album" && selectedItem.imported ? (
@@ -1033,10 +1073,10 @@ export const SearchPage = () => {
                       type="button"
                     >
                       {savingAlbum
-                        ? "Saving..."
+                        ? t("saving")
                         : selectedItem.mySavedAlbum
-                          ? "In My Albums"
-                          : "Add to My Albums"}
+                          ? t("in_my_albums")
+                          : t("add_to_my_albums")}
                     </button>
                   ) : null}
                 </div>
@@ -1048,12 +1088,12 @@ export const SearchPage = () => {
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <p className="mb-2 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-                      Your review
+                      {t("your_review")}
                     </p>
                     <h3 className="m-0 text-[clamp(1.4rem,2.4vw,2.2rem)] leading-[1.05]">
                       {selectedItem.myRating
-                        ? `${selectedItem.myRating}/5 saved`
-                        : "Rate this track"}
+                        ? t("saved_score", { score: selectedItem.myRating })
+                        : t("rate_this_track")}
                     </h3>
                   </div>
                   {selectedItem.myRating ? (
@@ -1063,15 +1103,17 @@ export const SearchPage = () => {
                       onClick={() => void clearRating(selectedItem)}
                       type="button"
                     >
-                      Clear Review
+                      {t("clear_review")}
                     </button>
                   ) : null}
                 </div>
 
                 <div className="grid gap-3">
-                  <span className="text-sm text-primary">Score</span>
+                  <span className="text-sm text-primary">
+                    {t("score_label")}
+                  </span>
                   <div
-                    aria-label="Rate this track"
+                    aria-label={t("rate_this_track")}
                     className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap"
                     role="group"
                   >
@@ -1095,18 +1137,20 @@ export const SearchPage = () => {
                 </div>
 
                 <label className="grid gap-2" htmlFor="rating-review">
-                  <span className="text-sm text-primary">Review</span>
+                  <span className="text-sm text-primary">
+                    {t("review_label")}
+                  </span>
                   <textarea
                     className="min-h-[150px] w-full resize-y rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 leading-[1.6] text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                     disabled={savingRating}
                     id="rating-review"
                     maxLength={2000}
                     onChange={(event) => setDraftReview(event.target.value)}
-                    placeholder="What stood out? Mention vocals, arrangement, lyrics, production, or why it belongs in your rotation."
+                    placeholder={t("review_placeholder_track")}
                     value={draftReview}
                   />
                   <span className="text-sm text-foreground/62">
-                    {draftReview.length}/2000 characters
+                    {t("characters_count", { count: draftReview.length })}
                   </span>
                 </label>
 
@@ -1117,15 +1161,14 @@ export const SearchPage = () => {
                     onClick={() => void saveRating(selectedItem)}
                     type="button"
                   >
-                    {savingRating ? "Saving..." : "Save Review"}
+                    {savingRating ? t("saving") : t("save_review")}
                   </button>
                 </div>
               </section>
             ) : selectedItem.type === "track" ? (
               <section className="mt-6 rounded-[24px] border border-foreground/12 bg-white/4 p-5">
                 <p className="m-0 leading-[1.6] text-foreground/82">
-                  Save this track to your catalog before adding a favorite or
-                  review.
+                  {t("save_track_first")}
                 </p>
               </section>
             ) : null}
@@ -1135,12 +1178,12 @@ export const SearchPage = () => {
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <p className="mb-2 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-                      Your album review
+                      {t("your_album_review")}
                     </p>
                     <h3 className="m-0 text-[clamp(1.4rem,2.4vw,2.2rem)] leading-[1.05]">
                       {selectedItem.myRating
-                        ? `${selectedItem.myRating}/5 saved`
-                        : "Rate this album"}
+                        ? t("saved_score", { score: selectedItem.myRating })
+                        : t("rate_this_album")}
                     </h3>
                   </div>
                   {selectedItem.myRating ? (
@@ -1150,15 +1193,17 @@ export const SearchPage = () => {
                       onClick={() => void clearAlbumRating(selectedItem)}
                       type="button"
                     >
-                      Clear Review
+                      {t("clear_review")}
                     </button>
                   ) : null}
                 </div>
 
                 <div className="grid gap-3">
-                  <span className="text-sm text-primary">Score</span>
+                  <span className="text-sm text-primary">
+                    {t("score_label")}
+                  </span>
                   <div
-                    aria-label="Rate this album"
+                    aria-label={t("rate_this_album")}
                     className="grid grid-cols-5 gap-2 sm:flex sm:flex-wrap"
                     role="group"
                   >
@@ -1182,18 +1227,20 @@ export const SearchPage = () => {
                 </div>
 
                 <label className="grid gap-2" htmlFor="album-rating-review">
-                  <span className="text-sm text-primary">Review</span>
+                  <span className="text-sm text-primary">
+                    {t("review_label")}
+                  </span>
                   <textarea
                     className="min-h-[150px] w-full resize-y rounded-[18px] border border-foreground/14 bg-white/5 px-[18px] py-4 leading-[1.6] text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                     disabled={savingRating}
                     id="album-rating-review"
                     maxLength={2000}
                     onChange={(event) => setDraftReview(event.target.value)}
-                    placeholder="How does the album work as a whole? Mention pacing, standouts, and production."
+                    placeholder={t("review_placeholder_album")}
                     value={draftReview}
                   />
                   <span className="text-sm text-foreground/62">
-                    {draftReview.length}/2000 characters
+                    {t("characters_count", { count: draftReview.length })}
                   </span>
                 </label>
 
@@ -1204,15 +1251,14 @@ export const SearchPage = () => {
                     onClick={() => void saveAlbumRating(selectedItem)}
                     type="button"
                   >
-                    {savingRating ? "Saving..." : "Save Review"}
+                    {savingRating ? t("saving") : t("save_review")}
                   </button>
                 </div>
               </section>
             ) : selectedItem.type === "album" ? (
               <section className="mt-6 rounded-[24px] border border-foreground/12 bg-white/4 p-5">
                 <p className="m-0 leading-[1.6] text-foreground/82">
-                  Save this album to your catalog before you can rate it or add
-                  it to your profile.
+                  {t("save_album_first")}
                 </p>
               </section>
             ) : null}

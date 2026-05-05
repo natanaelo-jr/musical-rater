@@ -1,6 +1,8 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../auth/useAuth";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 const getInitials = (value: string) =>
   value
@@ -20,6 +22,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   ].join(" ");
 
 export const AuthenticatedShell = () => {
+  const { t } = useTranslation();
   const auth = useAuth();
   const navigate = useNavigate();
   const user = auth.user;
@@ -42,13 +45,13 @@ export const AuthenticatedShell = () => {
           className="absolute left-5 top-4 z-30 -translate-y-[180%] rounded-full bg-primary px-4 py-3 font-bold text-white transition focus:translate-y-0 focus:shadow-[0_16px_36px_rgba(0,0,0,0.26)] focus:outline-none"
           href="#app-main"
         >
-          Skip to app content
+          {t("skip_to_content")}
         </a>
 
         <header className="flex flex-wrap items-center justify-between gap-[18px] rounded-3xl border border-foreground/12 bg-panel-header px-[22px] py-[18px] shadow-panel backdrop-blur-[18px]">
           <div className="grid gap-1">
             <p className="m-0 text-[0.72rem] uppercase tracking-[0.16em] text-secondary">
-              Private workspace
+              {t("private_workspace")}
             </p>
             <div className="flex items-center gap-2.5 text-[1.02rem] font-bold tracking-[0.02em]">
               <span
@@ -56,21 +59,21 @@ export const AuthenticatedShell = () => {
                 className="h-3 w-3 rounded-full bg-linear-to-br from-primary to-secondary shadow-[0_0_0_6px_rgb(240_68_125_/_0.12)]"
               />
               <Link className="text-inherit no-underline" to="/app">
-                Musical Rater
+                {t("app_name")}
               </Link>
             </div>
           </div>
 
           <nav
-            aria-label="Primary"
+            aria-label={t("nav_primary")}
             className="flex flex-wrap items-center gap-2.5"
           >
             {[
-              { label: "Dashboard", to: "/app" },
-              { label: "Search", to: "/app/search" },
-              { label: "People", to: "/app/people" },
-              { label: "Notifications", to: "/app/notifications" },
-              { label: "Profile", to: "/app/profile" },
+              { label: t("nav_dashboard"), to: "/app" },
+              { label: t("nav_search"), to: "/app/search" },
+              { label: t("nav_people"), to: "/app/people" },
+              { label: t("nav_notifications"), to: "/app/notifications" },
+              { label: t("nav_profile"), to: "/app/profile" },
             ].map((item) => (
               <NavLink
                 className={navLinkClass}
@@ -84,6 +87,7 @@ export const AuthenticatedShell = () => {
           </nav>
 
           <div className="flex flex-wrap items-center gap-3">
+            <LanguageSwitcher />
             <div
               aria-hidden="true"
               className="grid h-10 w-10 place-items-center rounded-[14px] border border-secondary/20 bg-linear-to-br from-primary/24 to-secondary/22 font-bold text-foreground"
@@ -92,7 +96,7 @@ export const AuthenticatedShell = () => {
             </div>
             <div className="grid min-w-0 gap-0.5">
               <div className="font-bold leading-tight">
-                {user.displayName || "Your profile"}
+                {user.displayName || t("your_profile")}
               </div>
               <div className="text-sm text-foreground/70">
                 {user.username ? `@${user.username}` : user.email}
@@ -103,19 +107,16 @@ export const AuthenticatedShell = () => {
               onClick={() => void handleLogout()}
               type="button"
             >
-              Sign out
+              {t("sign_out")}
             </button>
           </div>
         </header>
 
         {needsProfileSetup ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-secondary/18 bg-secondary/8 px-4 py-[14px] text-foreground">
-            <span>
-              Finish your profile so friends and future ratings have a clearer
-              identity to follow.
-            </span>
+            <span>{t("profile_setup_banner")}</span>
             <Link className="font-bold text-primary" to="/app/profile">
-              Complete profile
+              {t("complete_profile")}
             </Link>
           </div>
         ) : null}

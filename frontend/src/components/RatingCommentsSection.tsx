@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../auth/useAuth";
 import { apiGet, apiRequest } from "../lib/api";
@@ -22,11 +23,8 @@ export type RatingCommentItem = {
 const miniButtonClass =
   "text-sm font-semibold text-primary underline-offset-2 hover:underline";
 
-export const RatingCommentsSection = ({
-  ratingId,
-}: {
-  ratingId: number;
-}) => {
+export const RatingCommentsSection = ({ ratingId }: { ratingId: number }) => {
+  const { t } = useTranslation();
   const auth = useAuth();
   const user = auth.user;
   const [open, setOpen] = useState(false);
@@ -97,13 +95,13 @@ export const RatingCommentsSection = ({
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
-        {open ? "Hide comments" : "Comments"}
+        {open ? t("hide_comments") : t("comments")}
       </button>
 
       {open ? (
         <div className="mt-3 grid gap-4">
           {loading ? (
-            <p className="m-0 text-sm text-foreground/62">Loading…</p>
+            <p className="m-0 text-sm text-foreground/62">{t("loading")}</p>
           ) : null}
 
           {items.map((comment) => (
@@ -113,7 +111,7 @@ export const RatingCommentsSection = ({
                   <span className="text-sm font-semibold">
                     {comment.author.displayName ||
                       comment.author.username ||
-                      "Listener"}
+                      t("listener")}
                   </span>
                   <div className="flex flex-wrap items-center gap-2">
                     {user ? (
@@ -125,7 +123,7 @@ export const RatingCommentsSection = ({
                         }}
                         type="button"
                       >
-                        Reply
+                        {t("reply")}
                       </button>
                     ) : null}
                     {user && user.id === comment.author.id ? (
@@ -135,7 +133,7 @@ export const RatingCommentsSection = ({
                         onClick={() => void remove(comment.id)}
                         type="button"
                       >
-                        {deletingId === comment.id ? "…" : "Delete"}
+                        {deletingId === comment.id ? "..." : t("delete")}
                       </button>
                     ) : null}
                   </div>
@@ -153,7 +151,7 @@ export const RatingCommentsSection = ({
                     <span className="text-sm font-semibold">
                       {reply.author.displayName ||
                         reply.author.username ||
-                        "Listener"}
+                        t("listener")}
                     </span>
                     {user && user.id === reply.author.id ? (
                       <button
@@ -162,7 +160,7 @@ export const RatingCommentsSection = ({
                         onClick={() => void remove(reply.id)}
                         type="button"
                       >
-                        {deletingId === reply.id ? "…" : "Delete"}
+                        {deletingId === reply.id ? "..." : t("delete")}
                       </button>
                     ) : null}
                   </div>
@@ -178,13 +176,13 @@ export const RatingCommentsSection = ({
             <div className="grid gap-2">
               {replyToId !== null ? (
                 <p className="m-0 text-sm text-foreground/66">
-                  Replying to a comment.{" "}
+                  {t("replying_to_comment")}{" "}
                   <button
                     className={miniButtonClass}
                     onClick={() => setReplyToId(null)}
                     type="button"
                   >
-                    Cancel
+                    {t("cancel")}
                   </button>
                 </p>
               ) : null}
@@ -192,7 +190,7 @@ export const RatingCommentsSection = ({
                 className="min-h-[80px] w-full resize-y rounded-[14px] border border-foreground/12 bg-white/4 px-3 py-2 text-sm text-foreground/92 placeholder:text-foreground/42 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 maxLength={2000}
                 onChange={(event) => setDraft(event.target.value)}
-                placeholder="Write a comment…"
+                placeholder={t("write_comment")}
                 value={draft}
               />
               <button
@@ -201,7 +199,7 @@ export const RatingCommentsSection = ({
                 onClick={() => void submit()}
                 type="button"
               >
-                {submitting ? "Posting…" : "Post"}
+                {submitting ? t("posting") : t("post")}
               </button>
             </div>
           ) : null}

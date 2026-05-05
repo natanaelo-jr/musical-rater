@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 
 import { RatingCommentsSection } from "../components/RatingCommentsSection";
@@ -81,6 +82,7 @@ const initials = (name: string) =>
     .join("") || "MR";
 
 export const PublicProfilePage = () => {
+  const { t } = useTranslation();
   const { userId } = useParams();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [ratings, setRatings] = useState<PublicReviewItem[]>([]);
@@ -91,18 +93,18 @@ export const PublicProfilePage = () => {
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
-  const [message, setMessage] = useState("Loading profile...");
+  const [message, setMessage] = useState(t("loading_profile"));
   const [updatingFollow, setUpdatingFollow] = useState(false);
 
   useEffect(() => {
     if (!userId) {
       setStatus("error");
-      setMessage("Profile not found.");
+      setMessage(t("profile_not_found"));
       return;
     }
 
     setStatus("loading");
-    setMessage("Loading profile...");
+    setMessage(t("loading_profile"));
 
     void apiGet<ProfileResponse>(`/social/users/${userId}`)
       .then((payload) => {
@@ -121,7 +123,7 @@ export const PublicProfilePage = () => {
         setStatus("error");
         setMessage(readError(error));
       });
-  }, [userId]);
+  }, [userId, t]);
 
   const visibleRatingsItems = ratings.slice(0, visibleRatings);
   const visibleSavedAlbumItems = savedAlbums.slice(0, visibleSavedAlbums);
@@ -160,7 +162,7 @@ export const PublicProfilePage = () => {
   if (status === "loading") {
     return (
       <section className={cardClass}>
-        <p className="m-0 text-foreground/82">Loading profile...</p>
+        <p className="m-0 text-foreground/82">{t("loading_profile")}</p>
       </section>
     );
   }
@@ -170,7 +172,7 @@ export const PublicProfilePage = () => {
       <section className={cardClass}>
         <p className="mb-5 text-danger">{message}</p>
         <Link className={ghostButtonClass} to="/app/people">
-          Back to People
+          {t("back_to_people")}
         </Link>
       </section>
     );
@@ -194,13 +196,13 @@ export const PublicProfilePage = () => {
 
           <div className="min-w-0">
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Listener profile
+              {t("listener_profile")}
             </p>
             <h1 className="m-0 overflow-hidden text-ellipsis text-[clamp(2.2rem,5vw,5rem)] leading-[0.96]">
               {profile.displayName}
             </h1>
             <p className="mt-3 text-[1.05rem] text-foreground/72">
-              {profile.username ? `@${profile.username}` : "No username yet"}
+              {profile.username ? `@${profile.username}` : t("no_username_yet")}
             </p>
             {profile.bio ? (
               <p className="mt-5 max-w-[48rem] text-[1.05rem] leading-[1.7] text-foreground/84">
@@ -208,7 +210,7 @@ export const PublicProfilePage = () => {
               </p>
             ) : (
               <p className="mt-5 max-w-[48rem] text-[1.05rem] leading-[1.7] text-foreground/64">
-                This listener has not added a bio yet.
+                {t("listener_no_bio")}
               </p>
             )}
           </div>
@@ -216,7 +218,7 @@ export const PublicProfilePage = () => {
           <div className="flex flex-wrap gap-3 lg:justify-end">
             {profile.isSelf ? (
               <Link className={primaryButtonClass} to="/app/profile">
-                Edit Profile
+                {t("edit_profile")}
               </Link>
             ) : (
               <button
@@ -228,14 +230,14 @@ export const PublicProfilePage = () => {
                 type="button"
               >
                 {updatingFollow
-                  ? "Saving..."
+                  ? t("saving")
                   : profile.isFollowing
-                    ? "Following"
-                    : "Follow"}
+                    ? t("btn_following")
+                    : t("btn_follow")}
               </button>
             )}
             <Link className={ghostButtonClass} to="/app/people">
-              Find People
+              {t("find_people")}
             </Link>
           </div>
         </div>
@@ -244,9 +246,9 @@ export const PublicProfilePage = () => {
 
         <dl className="grid gap-3 sm:grid-cols-3">
           {[
-            ["Ratings", profile.stats.ratings],
-            ["Albums", profile.stats.albums],
-            ["Followers", profile.stats.followers],
+            [t("ratings"), profile.stats.ratings],
+            [t("albums"), profile.stats.albums],
+            [t("followers"), profile.stats.followers],
           ].map(([label, value]) => (
             <div className="rounded-[20px] bg-white/4 p-5" key={label}>
               <dt className="mb-2 text-sm text-primary">{label}</dt>
@@ -259,10 +261,10 @@ export const PublicProfilePage = () => {
       <section className={`${cardClass} grid gap-5`}>
         <div>
           <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-            Saved albums
+            {t("saved_albums")}
           </p>
           <h2 className="m-0 text-[clamp(1.6rem,3vw,3rem)] leading-[1.02]">
-            Albums on {profile.displayName}'s profile
+            {t("public_albums_title", { name: profile.displayName })}
           </h2>
         </div>
 
@@ -310,13 +312,13 @@ export const PublicProfilePage = () => {
                 }
                 type="button"
               >
-                Load More Albums
+                {t("load_more_albums")}
               </button>
             ) : null}
           </>
         ) : (
           <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-            No saved albums yet.
+            {t("no_saved_albums")}
           </div>
         )}
       </section>
@@ -325,10 +327,10 @@ export const PublicProfilePage = () => {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="mb-3 text-[0.76rem] uppercase tracking-[0.18em] text-secondary">
-              Recent reviews
+              {t("recent_reviews")}
             </p>
             <h2 className="m-0 text-[clamp(1.6rem,3vw,3rem)] leading-[1.02]">
-              What {profile.displayName} has been listening to
+              {t("public_recent_reviews_title", { name: profile.displayName })}
             </h2>
           </div>
         </div>
@@ -357,7 +359,7 @@ export const PublicProfilePage = () => {
                   </div>
                   <div className="min-w-0">
                     <p className="mb-1 text-[0.7rem] uppercase tracking-[0.12em] text-primary">
-                      {rating.kind === "album" ? "Album" : "Track"}
+                      {rating.kind === "album" ? t("album") : t("track")}
                     </p>
                     <h3 className="m-0 overflow-hidden text-ellipsis text-xl">
                       {rating.title}
@@ -372,7 +374,7 @@ export const PublicProfilePage = () => {
                       </p>
                     ) : (
                       <p className="mt-4 leading-[1.7] text-foreground/62">
-                        No written review yet.
+                        {t("no_written_review")}
                       </p>
                     )}
                   </div>
@@ -400,13 +402,13 @@ export const PublicProfilePage = () => {
                 }
                 type="button"
               >
-                Load More Reviews
+                {t("load_more_reviews")}
               </button>
             ) : null}
           </>
         ) : (
           <div className="rounded-[22px] border border-dashed border-foreground/12 bg-white/3 p-7 text-center text-foreground/72">
-            No reviews yet.
+            {t("no_reviews")}
           </div>
         )}
       </section>
