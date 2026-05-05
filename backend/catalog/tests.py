@@ -283,7 +283,9 @@ class CatalogApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["items"][0]["musicId"], popular.id)
-        self.assertEqual(response.json()["items"][0]["reason"], "Popular with listeners")
+        self.assertEqual(
+            response.json()["items"][0]["reason"], "Popular with listeners"
+        )
 
     def test_recommendations_respect_limit(self):
         self.client.force_login(self.user)
@@ -308,7 +310,9 @@ class CatalogApiTests(TestCase):
         response = self.client.get("/api/catalog/recommendations", {"limit": 21})
 
         self.assertEqual(response.status_code, 422)
-        self.assertEqual(response.json()["errors"]["limit"], "Limit must be 20 or less.")
+        self.assertEqual(
+            response.json()["errors"]["limit"], "Limit must be 20 or less."
+        )
 
     def test_clear_rating_removes_current_user_rating(self):
         self.client.force_login(self.user)
@@ -556,9 +560,7 @@ class CatalogApiTests(TestCase):
         )
         music = self._create_music()
         rating = Rating.objects.create(user=owner, music=music, score=3)
-        root = RatingComment.objects.create(
-            rating=rating, user=commenter, body="Root"
-        )
+        root = RatingComment.objects.create(rating=rating, user=commenter, body="Root")
         reply = RatingComment.objects.create(
             rating=rating, user=owner, parent=root, body="Reply"
         )

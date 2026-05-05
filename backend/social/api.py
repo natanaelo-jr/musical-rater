@@ -274,7 +274,7 @@ def mark_all_notifications_read_view(request):
     if auth_error:
         return auth_error
 
-    Notification.objects.filter(
-        recipient=request.user, read_at__isnull=True
-    ).update(read_at=timezone.now())
+    Notification.objects.filter(recipient=request.user, read_at__isnull=True).update(
+        read_at=timezone.now()
+    )
     return {"ok": True}
