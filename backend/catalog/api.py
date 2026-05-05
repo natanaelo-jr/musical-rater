@@ -200,7 +200,9 @@ def list_album_ratings_view(request):
         .order_by("-updated_at")[:5]
     )
     return {
-        "items": [serialize_album_rating_summary(ar) for ar in album_ratings],
+        "items": [
+            serialize_album_rating_summary(ar) for ar in album_ratings
+        ],
     }
 
 
