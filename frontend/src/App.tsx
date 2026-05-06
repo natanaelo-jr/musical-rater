@@ -1,8 +1,13 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "./auth/AuthProvider";
-import { ProtectedRoute, PublicOnlyRoute } from "./auth/RouteGuards";
+import {
+  ProtectedRoute,
+  PublicOnlyRoute,
+  StaffRoute,
+} from "./auth/RouteGuards";
 import { AuthenticatedShell } from "./components/AuthenticatedShell";
+import { AdminPage } from "./pages/AdminPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -29,6 +34,9 @@ const App = () => (
           <Route element={<NotificationsPage />} path="notifications" />
           <Route element={<SearchPage />} path="search" />
           <Route element={<ProfilePage />} path="profile" />
+          <Route element={<StaffRoute />}>
+            <Route element={<AdminPage />} path="admin" />
+          </Route>
         </Route>
       </Route>
       <Route element={<Navigate replace to="/" />} path="*" />

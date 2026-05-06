@@ -71,6 +71,8 @@ class AuthApiTests(TestCase):
                     "username": "profile-user",
                     "avatarUrl": "",
                     "bio": "Rates musicals nightly.",
+                    "isStaff": False,
+                    "isSuperuser": False,
                 },
             },
         )

@@ -53,3 +53,21 @@ export const PublicOnlyRoute = () => {
 
   return <Outlet />;
 };
+
+export const StaffRoute = () => {
+  const auth = useAuth();
+
+  if (auth.status === "loading") {
+    return <LoadingScreen />;
+  }
+
+  if (auth.status === "anonymous") {
+    return <Navigate replace to="/login" />;
+  }
+
+  if (!auth.user?.isStaff) {
+    return <Navigate replace to="/app" />;
+  }
+
+  return <Outlet />;
+};

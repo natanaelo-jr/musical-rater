@@ -74,6 +74,7 @@ export const AuthenticatedShell = () => {
               { label: t("nav_people"), to: "/app/people" },
               { label: t("nav_notifications"), to: "/app/notifications" },
               { label: t("nav_profile"), to: "/app/profile" },
+              ...(user.isStaff ? [{ label: "Admin", to: "/app/admin" }] : []),
             ].map((item) => (
               <NavLink
                 className={navLinkClass}

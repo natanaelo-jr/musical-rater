@@ -25,6 +25,8 @@ export type User = {
   username: string;
   avatarUrl: string;
   bio: string;
+  isStaff: boolean;
+  isSuperuser: boolean;
 };
 
 export type AuthState = "loading" | "authenticated" | "anonymous";

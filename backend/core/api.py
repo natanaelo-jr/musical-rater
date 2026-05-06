@@ -1,5 +1,6 @@
 from ninja import NinjaAPI
 from accounts.api import auth_router, profile_router
+from accounts.moderation_api import moderation_router
 from catalog.api import catalog_router
 from social.api import social_router
 
@@ -8,6 +9,7 @@ api.add_router("/auth", auth_router)
 api.add_router("/profile", profile_router)
 api.add_router("/catalog", catalog_router)
 api.add_router("/social", social_router)
+api.add_router("/moderation", moderation_router)
 
 
 @api.get("/health")

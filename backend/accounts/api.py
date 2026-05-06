@@ -21,6 +21,8 @@ def serialize_user(user):
         "username": profile.username or "",
         "avatarUrl": profile.avatar_url,
         "bio": profile.bio,
+        "isStaff": user.is_staff,
+        "isSuperuser": user.is_superuser,
     }
 
 
