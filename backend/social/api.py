@@ -93,6 +93,31 @@ def serialize_notification(notification):
     }
 
 
+def serialize_feed_rating(rating):
+    music = rating.music
+    artist = music.primary_artist
+    profile = rating.user.profile
+    return {
+        "reviewId": str(rating.id),
+        "user": {
+            "id": str(rating.user_id),
+            "username": profile.username or "",
+            "displayName": profile.display_name,
+        },
+        "song": {
+            "id": str(music.id),
+            "name": music.title,
+        },
+        "artist": {
+            "id": str(artist.id),
+            "name": artist.name,
+        },
+        "rating": rating.score,
+        "review": rating.review,
+        "createdAt": rating.created_at.isoformat(),
+    }
+
+
 @social_router.get("/users")
 def search_users_view(request, q: str = ""):
     auth_error = auth_required(request)
@@ -123,6 +148,34 @@ def search_users_view(request, q: str = ""):
         "items": [
             serialize_user_with_follow_state(user, following_ids) for user in users
         ]
+    }
+
+
+@social_router.get("/feed")
+def list_feed_view(request, page: int = 1):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if page < 1:
+        return JsonResponse({"detail": "Page must be greater than 0."}, status=422)
+
+    page_size = 10
+    offset = (page - 1) * page_size
+    following_ids = Follow.objects.filter(follower=request.user).values_list(
+        "following_id", flat=True
+    )
+    ratings = (
+        Rating.objects.filter(user_id__in=following_ids)
+        .select_related("user", "user__profile", "music", "music__primary_artist")
+        .order_by("-created_at")
+    )
+    items = list(ratings[offset : offset + page_size + 1])
+
+    return {
+        "items": [serialize_feed_rating(rating) for rating in items[:page_size]],
+        "page": page,
+        "hasNextPage": len(items) > page_size,
     }
 
 
@@ -274,7 +327,7 @@ def mark_all_notifications_read_view(request):
     if auth_error:
         return auth_error
 
-    Notification.objects.filter(
-        recipient=request.user, read_at__isnull=True
-    ).update(read_at=timezone.now())
+    Notification.objects.filter(recipient=request.user, read_at__isnull=True).update(
+        read_at=timezone.now()
+    )
     return {"ok": True}

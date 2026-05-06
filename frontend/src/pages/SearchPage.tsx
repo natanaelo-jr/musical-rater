@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 import { ApiError, apiGet, apiRequest } from "../lib/api";
 
@@ -1028,6 +1029,14 @@ export const SearchPage = () => {
                 </dl>
 
                 <div className="flex flex-wrap gap-3">
+                  {selectedItem.type === "track" && selectedItem.imported ? (
+                    <Link
+                      className={ghostButtonClass}
+                      to={`/app/songs/${selectedItem.id}`}
+                    >
+                      Ver página da música
+                    </Link>
+                  ) : null}
                   <button
                     className={primaryButtonClass}
                     disabled={

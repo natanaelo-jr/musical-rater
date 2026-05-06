@@ -117,6 +117,35 @@ class SocialApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["items"][0]["displayName"], "Critic")
 
+    def test_feed_returns_reviews_from_followed_users(self):
+        self.client.force_login(self.user)
+        Follow.objects.create(follower=self.user, following=self.other_user)
+        artist = Artist.objects.create(
+            name="Lin-Manuel Miranda",
+            source_provider="musicbrainz",
+            external_id="feed-artist",
+        )
+        music = Music.objects.create(
+            title="My Shot",
+            primary_artist=artist,
+            source_provider="musicbrainz",
+            external_id="feed-track",
+        )
+        Rating.objects.create(
+            user=self.other_user,
+            music=music,
+            score=5,
+            review="Electric opener.",
+        )
+
+        response = self.client.get("/api/feed")
+
+        self.assertEqual(response.status_code, 200)
+        item = response.json()["items"][0]
+        self.assertEqual(item["user"]["username"], "critic")
+        self.assertEqual(item["song"]["name"], "My Shot")
+        self.assertEqual(item["rating"], 5)
+
     def test_public_profile_merges_track_and_album_reviews(self):
         self.client.force_login(self.user)
         artist = Artist.objects.create(

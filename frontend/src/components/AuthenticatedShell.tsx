@@ -70,6 +70,7 @@ export const AuthenticatedShell = () => {
           >
             {[
               { label: t("nav_dashboard"), to: "/app" },
+              { label: "Feed", to: "/app/feed" },
               { label: t("nav_search"), to: "/app/search" },
               { label: t("nav_people"), to: "/app/people" },
               { label: t("nav_notifications"), to: "/app/notifications" },

@@ -9,6 +9,7 @@ import {
 import { AuthenticatedShell } from "./components/AuthenticatedShell";
 import { AdminPage } from "./pages/AdminPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { FeedPage } from "./pages/FeedPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
@@ -17,6 +18,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { SearchPage } from "./pages/SearchPage";
+import { SongPage } from "./pages/SongPage";
 
 const App = () => (
   <AuthProvider>
@@ -29,10 +31,12 @@ const App = () => (
       <Route element={<ProtectedRoute />}>
         <Route element={<AuthenticatedShell />} path="/app">
           <Route element={<DashboardPage />} index />
+          <Route element={<FeedPage />} path="feed" />
           <Route element={<PeoplePage />} path="people" />
           <Route element={<PublicProfilePage />} path="people/:userId" />
           <Route element={<NotificationsPage />} path="notifications" />
           <Route element={<SearchPage />} path="search" />
+          <Route element={<SongPage />} path="songs/:songId" />
           <Route element={<ProfilePage />} path="profile" />
           <Route element={<StaffRoute />}>
             <Route element={<AdminPage />} path="admin" />

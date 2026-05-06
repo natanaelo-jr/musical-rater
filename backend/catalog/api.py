@@ -1,3 +1,4 @@
+from django.db.models import Avg, Count
 from django.http import JsonResponse
 from ninja import Router, Schema
 
@@ -136,6 +137,41 @@ def serialize_rating_comment(comment):
     }
 
 
+def serialize_song_review(rating):
+    profile = rating.user.profile
+    return {
+        "reviewId": str(rating.id),
+        "user": {
+            "id": str(rating.user_id),
+            "username": profile.username or "",
+            "displayName": profile.display_name,
+        },
+        "rating": rating.score,
+        "review": rating.review,
+        "createdAt": rating.created_at.isoformat(),
+    }
+
+
+def serialize_song_detail(music):
+    album = music.album
+    return {
+        "id": str(music.id),
+        "name": music.title,
+        "artist": {
+            "id": str(music.primary_artist_id),
+            "name": music.primary_artist.name,
+        },
+        "album": {
+            "id": str(album.id),
+            "name": album.title,
+        }
+        if album
+        else None,
+        "artworkUrl": music.cover_url,
+        "releaseDate": music.release_date,
+    }
+
+
 @catalog_router.get("/search")
 def search_catalog_view(request, q: str, type: str = "all", page: int = 1):
     auth_error = auth_required(request)
@@ -158,6 +194,49 @@ def search_catalog_view(request, q: str, type: str = "all", page: int = 1):
         return JsonResponse(
             {"detail": "Catalog provider is currently unavailable."}, status=502
         )
+
+
+@catalog_router.get("/songs/{music_id}")
+def get_song_detail_view(request, music_id: int, page: int = 1):
+    auth_error = auth_required(request)
+    if auth_error:
+        return auth_error
+
+    if page < 1:
+        return JsonResponse({"detail": "Page must be greater than 0."}, status=422)
+
+    music = (
+        Music.objects.select_related("primary_artist", "album")
+        .filter(id=music_id)
+        .first()
+    )
+    if music is None:
+        return JsonResponse({"detail": "Song not found."}, status=404)
+
+    page_size = 10
+    offset = (page - 1) * page_size
+    ratings = (
+        Rating.objects.filter(music=music)
+        .select_related("user", "user__profile")
+        .order_by("-created_at")
+    )
+    stats = ratings.aggregate(average=Avg("score"), total=Count("id"))
+    review_page = list(ratings[offset : offset + page_size + 1])
+
+    return {
+        "song": serialize_song_detail(music),
+        "stats": {
+            "averageRating": round(stats["average"], 1)
+            if stats["average"] is not None
+            else None,
+            "totalReviews": stats["total"],
+        },
+        "reviews": [
+            serialize_song_review(rating) for rating in review_page[:page_size]
+        ],
+        "page": page,
+        "hasNextPage": len(review_page) > page_size,
+    }
 
 
 @catalog_router.get("/recommendations")
@@ -200,9 +279,7 @@ def list_album_ratings_view(request):
         .order_by("-updated_at")[:5]
     )
     return {
-        "items": [
-            serialize_album_rating_summary(ar) for ar in album_ratings
-        ],
+        "items": [serialize_album_rating_summary(ar) for ar in album_ratings],
     }
 
 
