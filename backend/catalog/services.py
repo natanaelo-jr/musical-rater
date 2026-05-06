@@ -18,7 +18,7 @@ POSITIVE_RATING_MIN_SCORE = 4
 
 
 def search_catalog(*, query: str, result_type: str, page: int):
-    provider = get_catalog_provider("musicbrainz")
+    provider = get_catalog_provider("deezer")
     results = provider.search(query=query, result_type=result_type, page=page)
 
     for item in results["items"]:
@@ -341,7 +341,9 @@ def _score_collaborative_candidates(
         )
         .exclude(music_id__in=excluded_music_ids)
         .values("music_id")
-        .annotate(listener_count=Count("user_id", distinct=True), avg_score=Avg("score"))
+        .annotate(
+            listener_count=Count("user_id", distinct=True), avg_score=Avg("score")
+        )
     )
     for candidate in rating_candidates:
         _add_recommendation(
@@ -355,7 +357,9 @@ def _score_collaborative_candidates(
         )
 
 
-def _score_popular_candidates(*, excluded_music_ids, scores, reasons, reason_priorities):
+def _score_popular_candidates(
+    *, excluded_music_ids, scores, reasons, reason_priorities
+):
     popular_favorites = (
         Favorite.objects.exclude(music_id__in=excluded_music_ids)
         .values("music_id")
@@ -376,7 +380,9 @@ def _score_popular_candidates(*, excluded_music_ids, scores, reasons, reason_pri
         Rating.objects.filter(score__gte=POSITIVE_RATING_MIN_SCORE)
         .exclude(music_id__in=excluded_music_ids)
         .values("music_id")
-        .annotate(listener_count=Count("user_id", distinct=True), avg_score=Avg("score"))
+        .annotate(
+            listener_count=Count("user_id", distinct=True), avg_score=Avg("score")
+        )
     )
     for candidate in popular_ratings:
         _add_recommendation(
