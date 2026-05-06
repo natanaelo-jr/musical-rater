@@ -83,7 +83,7 @@ class MusicBrainzSearchProvider(CatalogSearchProvider):
                 "Accept": "application/json",
                 "User-Agent": os.getenv(
                     "MUSICBRAINZ_USER_AGENT",
-                    "musical-rater/0.1 ( https://github.com/natanaelo-jr/musical-rater )",
+                    "palhinha/0.1 ( https://github.com/natanaelo-jr/musical-rater )",
                 ),
             },
         )

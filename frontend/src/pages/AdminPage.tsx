@@ -173,7 +173,7 @@ export const AdminPage = () => {
           Administração
         </p>
         <h1 className="m-0 text-[clamp(2rem,4vw,4rem)] leading-[0.98]">
-          Moderação do Musical Rater
+          Moderação do Palhinha
         </h1>
       </header>
 

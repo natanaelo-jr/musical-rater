@@ -2,7 +2,7 @@
 
 ## Project
 
-Musical Rater — a platform for rating songs and albums, with social interaction and recommendations.
+Palhinha — a platform for rating songs and albums, with social interaction and recommendations.
 
 ---
 

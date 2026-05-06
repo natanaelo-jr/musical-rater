@@ -1,4 +1,4 @@
-# Musical Rater
+# Palhinha
 
 Este projeto tem como objetivo criar um sistema de avaliação musical, onde os usuários podem avaliar músicas e compartilhar suas opiniões.
 

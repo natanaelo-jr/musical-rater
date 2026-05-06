@@ -1,6 +1,6 @@
 # Database Schema
 
-Este documento descreve a proposta inicial de schema relacional para o Musical Rater. O desenho considera PostgreSQL em producao e Django ORM no backend.
+Este documento descreve a proposta inicial de schema relacional para o Palhinha. O desenho considera PostgreSQL em producao e Django ORM no backend.
 
 ## Escopo
 
