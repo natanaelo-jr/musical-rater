@@ -218,7 +218,7 @@ def get_song_detail_view(request, music_id: int, page: int = 1):
     ratings = (
         Rating.objects.filter(music=music)
         .select_related("user", "user__profile")
-        .order_by("-created_at")
+        .order_by("created_at", "id")
     )
     stats = ratings.aggregate(average=Avg("score"), total=Count("id"))
     review_page = list(ratings[offset : offset + page_size + 1])
