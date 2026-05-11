@@ -21,8 +21,7 @@ def search_catalog(*, query: str, result_type: str, page: int):
     provider = get_catalog_provider("deezer")
     results = provider.search(query=query, result_type=result_type, page=page)
 
-    for item in results["items"]:
-        item["imported"] = _is_imported(item)
+    results["items"] = [_with_local_catalog_state(item) for item in results["items"]]
 
     return results
 
@@ -248,17 +247,19 @@ def serialize_track(music: Music):
     return payload
 
 
-def _is_imported(item: dict[str, object]):
-    if item["type"] == "album":
-        return Album.objects.filter(
-            source_provider=item["sourceProvider"],
-            external_id=item["externalId"],
-        ).exists()
-
-    return Music.objects.filter(
+def _with_local_catalog_state(item: dict[str, object]):
+    existing_item = _get_existing_item(
         source_provider=item["sourceProvider"],
         external_id=item["externalId"],
-    ).exists()
+        item_type=item["type"],
+    )
+    if existing_item is None:
+        return {**item, "imported": False}
+
+    if item["type"] == "album":
+        return {**item, **serialize_album(existing_item)}
+
+    return {**item, **serialize_track(existing_item)}
 
 
 def _get_existing_item(*, source_provider: str, external_id: str, item_type: str):

@@ -663,6 +663,83 @@ class CatalogApiTests(TestCase):
 
 
 class CatalogImportServiceTests(TestCase):
+    def test_search_includes_local_id_for_imported_track(self):
+        from catalog.services import search_catalog
+
+        artist = Artist.objects.create(
+            name="Lin-Manuel Miranda",
+            source_provider="deezer",
+            external_id="artist:lin-manuel miranda",
+        )
+        music = Music.objects.create(
+            title="My Shot",
+            primary_artist=artist,
+            source_provider="deezer",
+            external_id="3135556",
+            cover_url="https://img.example/local.jpg",
+        )
+        provider_result = {
+            "type": "track",
+            "sourceProvider": "deezer",
+            "externalId": "3135556",
+            "title": "My Shot",
+            "artistName": "Lin-Manuel Miranda",
+            "artworkUrl": "https://img.example/provider.jpg",
+            "releaseDate": "2015-09-25",
+        }
+
+        with patch("catalog.services.get_catalog_provider") as provider_factory:
+            provider_factory.return_value.search.return_value = {
+                "items": [provider_result],
+                "page": 1,
+                "hasNextPage": False,
+            }
+
+            payload = search_catalog(query="my shot", result_type="track", page=1)
+
+        item = payload["items"][0]
+        self.assertTrue(item["imported"])
+        self.assertEqual(item["id"], music.id)
+        self.assertEqual(item["artworkUrl"], "https://img.example/local.jpg")
+
+    def test_search_includes_local_id_for_imported_album(self):
+        from catalog.services import search_catalog
+
+        artist = Artist.objects.create(
+            name="Original Broadway Cast",
+            source_provider="deezer",
+            external_id="artist:original broadway cast",
+        )
+        album = Album.objects.create(
+            title="Hamilton",
+            primary_artist=artist,
+            source_provider="deezer",
+            external_id="302127",
+            release_date="2015-09-25",
+        )
+        provider_result = {
+            "type": "album",
+            "sourceProvider": "deezer",
+            "externalId": "302127",
+            "title": "Hamilton",
+            "artistName": "Original Broadway Cast",
+            "artworkUrl": "",
+            "releaseDate": "2015-09-25",
+        }
+
+        with patch("catalog.services.get_catalog_provider") as provider_factory:
+            provider_factory.return_value.search.return_value = {
+                "items": [provider_result],
+                "page": 1,
+                "hasNextPage": False,
+            }
+
+            payload = search_catalog(query="hamilton", result_type="album", page=1)
+
+        item = payload["items"][0]
+        self.assertTrue(item["imported"])
+        self.assertEqual(item["id"], album.id)
+
     def test_import_album_creates_artist_and_album(self):
         from catalog.services import import_catalog_item
 
