@@ -256,27 +256,27 @@ O diagrama acima resume o modelo do projeto. Os atributos foram reduzidos aos ca
 
 ```mermaid
 flowchart LR
-    subgraph Frontend["Frontend React"]
-        AuthProvider["AuthProvider"]
-        ApiTs["lib/api.ts"]
-        Pages["paginas protegidas, busca, perfil e feed"]
+    subgraph Frontend["Camada Frontend"]
+        AuthProvider["<<package>>\nAuthProvider"]
+        ApiTs["<<package>>\nlib/api.ts"]
+        Pages["<<package>>\npaginas protegidas, busca, perfil e feed"]
     end
 
-    subgraph API["Django Ninja API"]
-        Urls["config.urls + core.api"]
-        Accounts["accounts"]
-        Catalog["catalog"]
-        Social["social"]
+    subgraph API["Camada Backend"]
+        Urls["<<package>>\nconfig.urls + core.api"]
+        Accounts["<<package>>\naccounts"]
+        Catalog["<<package>>\ncatalog"]
+        Social["<<package>>\nsocial"]
     end
 
-    subgraph Dominio["Servicos e Providers"]
-        Services["catalog.services"]
-        Providers["catalog.providers"]
+    subgraph Dominio["Servicos e Integracao"]
+        Services["<<package>>\ncatalog.services"]
+        Providers["<<package>>\ncatalog.providers"]
     end
 
     subgraph Externas["APIs externas de catalogo"]
-        Deezer["Deezer API"]
-        MusicBrainz["MusicBrainz API"]
+        Deezer["<<external>>\nDeezer API"]
+        MusicBrainz["<<external>>\nMusicBrainz API"]
     end
 
     DB[("PostgreSQL")]
@@ -304,5 +304,6 @@ flowchart LR
 
 O fluxo parte do React, passa por `AuthProvider` e `lib/api.ts`, e entra nas rotas expostas por `config.urls` e `core.api`.
 No backend, `accounts`, `catalog` e `social` separam responsabilidades; a logica de importacao e recomendacao fica concentrada em `catalog.services`.
+Como o Mermaid nao desenha nativamente o icone UML classico de pacote no GitHub, o diagrama usa o estereotipo `<<package>>` para explicitar essa leitura.
 As APIs externas usadas hoje sao `Deezer` e `MusicBrainz`; `catalog.providers` consulta essas fontes, normaliza os metadados e alimenta o catalogo local em PostgreSQL.
 Depois da importacao, o catalogo local vira a base usada nas avaliacoes, no feed social e nas notificacoes.
