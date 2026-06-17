@@ -31,3 +31,5 @@ build/
 # =========================
 coverage/
 .cache/
+
+historias-por-pessoa
