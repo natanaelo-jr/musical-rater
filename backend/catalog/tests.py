@@ -618,6 +618,132 @@ class CatalogApiTests(TestCase):
         self.assertEqual(payload["stats"]["totalReviews"], 2)
         self.assertEqual(payload["reviews"][0]["user"]["username"], "critic")
 
+    def test_get_rating_requires_authentication(self):
+        music = self._create_music()
+
+        response = self.client.get(f"/api/catalog/ratings/{music.id}")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_list_ratings_requires_authentication(self):
+        response = self.client.get("/api/catalog/ratings")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_clear_rating_requires_authentication(self):
+        music = self._create_music()
+
+        response = self.client.delete(f"/api/catalog/ratings/{music.id}")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_rating_returns_null_when_not_rated(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        response = self.client.get(f"/api/catalog/ratings/{music.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["rating"])
+
+    def test_get_rating_returns_404_for_unknown_music(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get("/api/catalog/ratings/999999")
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_save_rating_returns_404_for_unknown_music(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            "/api/catalog/ratings/999999",
+            data={"score": 4},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_clear_rating_returns_404_for_unknown_music(self):
+        self.client.force_login(self.user)
+
+        response = self.client.delete("/api/catalog/ratings/999999")
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_save_rating_rejects_score_below_minimum(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 0},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["errors"]["score"], "Score must be between 1 and 5."
+        )
+
+    def test_save_rating_accepts_boundary_scores(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        low = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 1},
+            content_type="application/json",
+        )
+        high = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 5},
+            content_type="application/json",
+        )
+
+        self.assertEqual(low.json()["rating"]["score"], 1)
+        self.assertEqual(high.json()["rating"]["score"], 5)
+
+    def test_save_rating_accepts_review_at_max_length(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 3, "review": "x" * 2000},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(Rating.objects.get().review), 2000)
+
+    def test_save_rating_trims_review_whitespace(self):
+        self.client.force_login(self.user)
+        music = self._create_music()
+
+        response = self.client.post(
+            f"/api/catalog/ratings/{music.id}",
+            data={"score": 4, "review": "  Sharp and precise.  "},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Rating.objects.get().review, "Sharp and precise.")
+
+    def test_rating_is_scoped_to_current_user(self):
+        other_user = get_user_model().objects.create_user(
+            email="other@example.com",
+            password="StrongPass123!",
+        )
+        music = self._create_music()
+        Rating.objects.create(user=other_user, music=music, score=5, review="Theirs.")
+        self.client.force_login(self.user)
+
+        response = self.client.get(f"/api/catalog/ratings/{music.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["rating"])
+
     def _create_music(self):
         artist = Artist.objects.create(
             name="Lin-Manuel Miranda",
@@ -827,129 +953,3 @@ class CatalogImportServiceTests(TestCase):
                 external_id="x",
                 item_type="album",
             )
-            
-    def test_get_rating_requires_authentication(self):
-        music = self._create_music()
-
-        response = self.client.get(f"/api/catalog/ratings/{music.id}")
-
-        self.assertEqual(response.status_code, 401)
-
-    def test_list_ratings_requires_authentication(self):
-        response = self.client.get("/api/catalog/ratings")
-
-        self.assertEqual(response.status_code, 401)
-
-    def test_clear_rating_requires_authentication(self):
-        music = self._create_music()
-
-        response = self.client.delete(f"/api/catalog/ratings/{music.id}")
-
-        self.assertEqual(response.status_code, 401)
-
-    def test_get_rating_returns_null_when_not_rated(self):
-        self.client.force_login(self.user)
-        music = self._create_music()
-
-        response = self.client.get(f"/api/catalog/ratings/{music.id}")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIsNone(response.json()["rating"])
-
-    def test_get_rating_returns_404_for_unknown_music(self):
-        self.client.force_login(self.user)
-
-        response = self.client.get("/api/catalog/ratings/999999")
-
-        self.assertEqual(response.status_code, 404)
-
-    def test_save_rating_returns_404_for_unknown_music(self):
-        self.client.force_login(self.user)
-
-        response = self.client.post(
-            "/api/catalog/ratings/999999",
-            data={"score": 4},
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, 404)
-
-    def test_clear_rating_returns_404_for_unknown_music(self):
-        self.client.force_login(self.user)
-
-        response = self.client.delete("/api/catalog/ratings/999999")
-
-        self.assertEqual(response.status_code, 404)
-
-    def test_save_rating_rejects_score_below_minimum(self):
-        self.client.force_login(self.user)
-        music = self._create_music()
-
-        response = self.client.post(
-            f"/api/catalog/ratings/{music.id}",
-            data={"score": 0},
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, 422)
-        self.assertEqual(
-            response.json()["errors"]["score"], "Score must be between 1 and 5."
-        )
-
-    def test_save_rating_accepts_boundary_scores(self):
-        self.client.force_login(self.user)
-        music = self._create_music()
-
-        low = self.client.post(
-            f"/api/catalog/ratings/{music.id}",
-            data={"score": 1},
-            content_type="application/json",
-        )
-        high = self.client.post(
-            f"/api/catalog/ratings/{music.id}",
-            data={"score": 5},
-            content_type="application/json",
-        )
-
-        self.assertEqual(low.json()["rating"]["score"], 1)
-        self.assertEqual(high.json()["rating"]["score"], 5)
-
-    def test_save_rating_accepts_review_at_max_length(self):
-        self.client.force_login(self.user)
-        music = self._create_music()
-
-        response = self.client.post(
-            f"/api/catalog/ratings/{music.id}",
-            data={"score": 3, "review": "x" * 2000},
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(Rating.objects.get().review), 2000)
-
-    def test_save_rating_trims_review_whitespace(self):
-        self.client.force_login(self.user)
-        music = self._create_music()
-
-        response = self.client.post(
-            f"/api/catalog/ratings/{music.id}",
-            data={"score": 4, "review": "  Sharp and precise.  "},
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(Rating.objects.get().review, "Sharp and precise.")
-
-    def test_rating_is_scoped_to_current_user(self):
-        other_user = get_user_model().objects.create_user(
-            email="other@example.com",
-            password="StrongPass123!",
-        )
-        music = self._create_music()
-        Rating.objects.create(user=other_user, music=music, score=5, review="Theirs.")
-        self.client.force_login(self.user)
-
-        response = self.client.get(f"/api/catalog/ratings/{music.id}")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIsNone(response.json()["rating"])
