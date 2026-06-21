@@ -333,3 +333,90 @@ class SocialApiTests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(all_read.status_code, 200)
+
+    def test_unfollow_user_requires_authentication(self):
+        response = self.client.delete(f"/api/social/following/{self.other_user.id}")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_unfollow_nonexistent_follow_returns_removed_false(self):
+        self.client.force_login(self.user)
+
+        response = self.client.delete(f"/api/social/following/{self.other_user.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ok": True, "removed": False})
+
+    def test_follow_user_returns_404_for_unknown_user(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            "/api/social/following/999999",
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_search_users_requires_authentication(self):
+        response = self.client.get("/api/social/users", {"q": "critic"})
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_search_users_returns_empty_for_short_query(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get("/api/social/users", {"q": "c"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"], [])
+
+    def test_list_following_requires_authentication(self):
+        response = self.client.get("/api/social/following")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_public_profile_requires_authentication(self):
+        response = self.client.get(f"/api/social/users/{self.other_user.id}")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_public_profile_returns_404_for_unknown_user(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get("/api/social/users/999999")
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_get_public_profile_shows_is_self(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(f"/api/social/users/{self.user.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["profile"]["isSelf"])
+        self.assertFalse(response.json()["profile"]["isFollowing"])
+
+    def test_get_public_profile_shows_is_not_following(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(f"/api/social/users/{self.other_user.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["profile"]["isSelf"])
+        self.assertFalse(response.json()["profile"]["isFollowing"])
+
+    def test_get_public_profile_following_count_in_stats(self):
+        self.client.force_login(self.user)
+        third_user = get_user_model().objects.create_user(
+            email="third@example.com",
+            password="StrongPass123!",
+        )
+        Follow.objects.create(follower=self.other_user, following=self.user)
+        Follow.objects.create(follower=self.other_user, following=third_user)
+
+        response = self.client.get(f"/api/social/users/{self.other_user.id}")
+
+        self.assertEqual(response.status_code, 200)
+        stats = response.json()["profile"]["stats"]
+        self.assertEqual(stats["following"], 2)
+        self.assertEqual(stats["followers"], 0)

@@ -15,6 +15,9 @@ migrate:
 lint:
     pre-commit run --all-files
 
+coverage:
+    backend/scripts/coverage.sh
+
 dev:
     just db
     just migrate
