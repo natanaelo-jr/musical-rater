@@ -953,3 +953,254 @@ class CatalogImportServiceTests(TestCase):
                 external_id="x",
                 item_type="album",
             )
+
+
+class CatalogProviderTests(TestCase):
+    def test_get_catalog_provider_returns_supported_providers(self):
+        from catalog.providers import (
+            DeezerSearchProvider,
+            MusicBrainzSearchProvider,
+            get_catalog_provider,
+        )
+
+        self.assertIsInstance(get_catalog_provider("deezer"), DeezerSearchProvider)
+        self.assertIsInstance(
+            get_catalog_provider("musicbrainz"), MusicBrainzSearchProvider
+        )
+        with self.assertRaisesMessage(ValueError, "Unsupported provider."):
+            get_catalog_provider("unknown")
+
+    def test_deezer_search_all_combines_album_and_track_results(self):
+        from catalog.providers import DeezerSearchProvider
+
+        provider = DeezerSearchProvider()
+        payloads = {
+            "/search/album": {
+                "data": [
+                    {
+                        "id": 302127,
+                        "title": "Hamilton",
+                        "release_date": "2015-09-25",
+                        "nb_tracks": 46,
+                        "cover_medium": "https://img.example/album.jpg",
+                        "artist": {"name": "Original Broadway Cast"},
+                    }
+                ],
+                "total": 6,
+            },
+            "/search/track": {
+                "data": [
+                    {
+                        "id": 3135556,
+                        "title": "My Shot",
+                        "duration": 333,
+                        "release_date": "2015-09-25",
+                        "artist": {"name": "Lin-Manuel Miranda"},
+                        "album": {
+                            "id": 302127,
+                            "title": "Hamilton",
+                            "cover_medium": "https://img.example/track.jpg",
+                            "release_date": "2015-09-25",
+                        },
+                    }
+                ],
+                "total": 1,
+            },
+        }
+
+        with patch.object(provider, "_request_json") as request_json:
+            request_json.side_effect = lambda path, params=None: payloads[path]
+
+            payload = provider.search(query="hamilton", result_type="all", page=1)
+
+        self.assertEqual(payload["page"], 1)
+        self.assertTrue(payload["hasNextPage"])
+        self.assertEqual(
+            [item["type"] for item in payload["items"]], ["album", "track"]
+        )
+        self.assertEqual(payload["items"][0]["metadata"]["trackCount"], 46)
+        self.assertEqual(payload["items"][1]["durationSeconds"], 333)
+        self.assertEqual(payload["items"][1]["album"]["externalId"], "302127")
+        request_json.assert_any_call(
+            "/search/album", {"q": "hamilton", "index": 0, "limit": 5}
+        )
+        request_json.assert_any_call(
+            "/search/track", {"q": "hamilton", "index": 0, "limit": 5}
+        )
+
+    def test_deezer_fetch_item_normalizes_album_and_track(self):
+        from catalog.providers import DeezerSearchProvider
+
+        provider = DeezerSearchProvider()
+        payloads = {
+            "/album/302127": {
+                "id": 302127,
+                "title": "Hamilton",
+                "release_date": "2015-09-25",
+                "nb_tracks": 46,
+                "cover_xl": "https://img.example/album-xl.jpg",
+                "artist": {"name": "Original Broadway Cast"},
+            },
+            "/track/3135556": {
+                "id": 3135556,
+                "title": "My Shot",
+                "duration": 333,
+                "release_date": "2015-09-25",
+                "artist": {"name": "Lin-Manuel Miranda"},
+                "album": {
+                    "id": 302127,
+                    "title": "Hamilton",
+                    "cover_xl": "https://img.example/track-xl.jpg",
+                    "release_date": "2015-09-25",
+                },
+            },
+        }
+
+        with patch.object(provider, "_request_json") as request_json:
+            request_json.side_effect = lambda path, params=None: payloads[path]
+
+            album = provider.fetch_item("album", "302127")
+            track = provider.fetch_item("track", "3135556")
+
+        self.assertEqual(album["sourceProvider"], "deezer")
+        self.assertEqual(album["artworkUrl"], "https://img.example/album-xl.jpg")
+        self.assertEqual(track["album"]["title"], "Hamilton")
+        self.assertEqual(track["artworkUrl"], "https://img.example/track-xl.jpg")
+        with self.assertRaisesMessage(ValueError, "Unsupported item type."):
+            provider.fetch_item("artist", "1")
+
+    def test_musicbrainz_search_and_fetch_normalize_payloads(self):
+        from catalog.providers import MusicBrainzSearchProvider
+
+        provider = MusicBrainzSearchProvider()
+        payloads = {
+            "/release": {
+                "releases": [
+                    {
+                        "id": "release-1",
+                        "title": "Hamilton",
+                        "date": "2015-09-25",
+                        "country": "US",
+                        "track-count": 46,
+                        "artist-credit": [{"name": "Original Broadway Cast"}],
+                    }
+                ],
+                "count": 11,
+            },
+            "/recording": {
+                "recordings": [
+                    {
+                        "id": "recording-1",
+                        "title": "My Shot",
+                        "length": 333000,
+                        "artist-credit": [{"name": "Lin-Manuel Miranda"}],
+                        "releases": [
+                            {
+                                "id": "release-1",
+                                "title": "Hamilton",
+                                "date": "2015-09-25",
+                            }
+                        ],
+                    }
+                ],
+                "count": 1,
+            },
+            "/release/release-1": {
+                "id": "release-1",
+                "title": "Hamilton",
+                "artist-credit": [{"name": "Original Broadway Cast"}],
+            },
+            "/recording/recording-1": {
+                "id": "recording-1",
+                "title": "My Shot",
+                "length": 333000,
+                "artist-credit": [{"name": "Lin-Manuel Miranda"}],
+                "releases": [],
+            },
+        }
+
+        with patch.object(provider, "_request_json") as request_json:
+            request_json.side_effect = lambda path, params=None: payloads[path]
+
+            search_payload = provider.search(
+                query="hamilton", result_type="all", page=1
+            )
+            album = provider.fetch_item("album", "release-1")
+            track = provider.fetch_item("track", "recording-1")
+
+        self.assertTrue(search_payload["hasNextPage"])
+        self.assertEqual(search_payload["items"][0]["type"], "album")
+        self.assertEqual(search_payload["items"][1]["durationSeconds"], 333)
+        self.assertEqual(album["externalId"], "release-1")
+        self.assertEqual(track["album"], None)
+        request_json.assert_any_call(
+            "/release", {"query": "hamilton", "fmt": "json", "limit": 5, "offset": 0}
+        )
+        request_json.assert_any_call(
+            "/recording",
+            {"query": "hamilton", "fmt": "json", "limit": 5, "offset": 0},
+        )
+
+    def test_providers_reject_unsupported_search_types(self):
+        from catalog.providers import DeezerSearchProvider, MusicBrainzSearchProvider
+
+        with self.assertRaisesMessage(ValueError, "Unsupported result type."):
+            DeezerSearchProvider().search(
+                query="hamilton", result_type="artist", page=1
+            )
+        with self.assertRaisesMessage(ValueError, "Unsupported result type."):
+            MusicBrainzSearchProvider().search(
+                query="hamilton", result_type="artist", page=1
+            )
+
+    def test_musicbrainz_helpers_handle_empty_and_invalid_values(self):
+        from catalog.providers import MusicBrainzSearchProvider
+
+        provider = MusicBrainzSearchProvider()
+
+        self.assertEqual(provider._artist_name([]), "")
+        self.assertEqual(provider._artist_name(["Company"]), "Company")
+        self.assertEqual(provider._duration_seconds(None), None)
+        self.assertEqual(provider._duration_seconds(-1), None)
+        self.assertEqual(provider._cover_art_url(""), "")
+
+    @patch("catalog.providers.urlopen")
+    def test_deezer_request_json_builds_url_and_decodes_response(self, urlopen_mock):
+        from catalog.providers import DeezerSearchProvider
+
+        urlopen_mock.return_value.__enter__.return_value.read.return_value = (
+            b'{"ok": true}'
+        )
+
+        payload = DeezerSearchProvider(base_url="https://api.example")._request_json(
+            "/search/album", {"q": "my shot", "limit": 10}
+        )
+
+        request = urlopen_mock.call_args.args[0]
+        self.assertEqual(payload, {"ok": True})
+        self.assertEqual(
+            request.full_url,
+            "https://api.example/search/album?q=my+shot&limit=10",
+        )
+        self.assertEqual(request.headers["Accept"], "application/json")
+
+    @patch("catalog.providers.urlopen")
+    def test_musicbrainz_request_json_adds_format_and_user_agent(self, urlopen_mock):
+        from catalog.providers import MusicBrainzSearchProvider
+
+        urlopen_mock.return_value.__enter__.return_value.read.return_value = (
+            b'{"ok": true}'
+        )
+
+        payload = MusicBrainzSearchProvider(
+            base_url="https://music.example"
+        )._request_json("/release/release-1")
+
+        request = urlopen_mock.call_args.args[0]
+        self.assertEqual(payload, {"ok": True})
+        self.assertEqual(
+            request.full_url,
+            "https://music.example/release/release-1?fmt=json",
+        )
+        self.assertEqual(request.headers["Accept"], "application/json")
+        self.assertIn("palhinha/0.1", request.headers["User-agent"])
