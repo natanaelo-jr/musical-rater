@@ -128,6 +128,65 @@ class AuthApiTests(TestCase):
         self.assertNotIn("_auth_user_id", self.client.session)
 
 
+class AccountModelTests(TestCase):
+    def test_user_manager_requires_email(self):
+        with self.assertRaisesMessage(ValueError, "The given email must be set"):
+            get_user_model().objects.create_user(email="", password="StrongPass123!")
+
+    def test_create_superuser_requires_staff_flag(self):
+        with self.assertRaisesMessage(ValueError, "Superuser must have is_staff=True."):
+            get_user_model().objects.create_superuser(
+                email="admin@example.com",
+                password="StrongPass123!",
+                is_staff=False,
+            )
+
+    def test_create_superuser_requires_superuser_flag(self):
+        with self.assertRaisesMessage(
+            ValueError, "Superuser must have is_superuser=True."
+        ):
+            get_user_model().objects.create_superuser(
+                email="admin@example.com",
+                password="StrongPass123!",
+                is_superuser=False,
+            )
+
+    def test_user_string_returns_email(self):
+        user = get_user_model().objects.create_user(
+            email="listener@example.com",
+            password="StrongPass123!",
+        )
+
+        self.assertEqual(str(user), "listener@example.com")
+
+    def test_profile_save_converts_blank_username_to_null(self):
+        user = get_user_model().objects.create_user(
+            email="profile@example.com",
+            password="StrongPass123!",
+        )
+
+        user.profile.username = ""
+        user.profile.save(update_fields=["username"])
+        user.profile.refresh_from_db()
+
+        self.assertIsNone(user.profile.username)
+
+    def test_profile_string_prefers_display_name_and_falls_back_to_email(self):
+        user = get_user_model().objects.create_user(
+            email="profile-string@example.com",
+            password="StrongPass123!",
+        )
+        user.profile.display_name = ""
+        user.profile.save(update_fields=["display_name"])
+
+        self.assertEqual(str(user.profile), "profile-string@example.com")
+
+        user.profile.display_name = "Profile Name"
+        user.profile.save(update_fields=["display_name"])
+
+        self.assertEqual(str(user.profile), "Profile Name")
+
+
 class ModerationApiTests(TestCase):
     def setUp(self):
         self.staff = get_user_model().objects.create_user(
