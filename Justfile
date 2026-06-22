@@ -26,17 +26,19 @@ dev:
 test-backend:
     cd backend && uv run python manage.py test
 
-test-frontend:
-    cd frontend && npx cypress run
+test-frontend headed="false":
+    cd frontend && npx cypress run $([ "{{headed}}" = "true" ] && echo "--headed" || echo "")
 
-test target="all":
+test target="all" headed="false":
     @if [ "{{target}}" = "backend" ]; then \
         just test-backend; \
     elif [ "{{target}}" = "frontend" ]; then \
-        just test-frontend; \
+        just test-frontend "{{headed}}"; \
+    elif [ "{{target}}" = "coverage" ]; then \
+        just coverage; \
     elif [ "{{target}}" = "all" ]; then \
-        just test-backend && just test-frontend; \
+        just test-backend && just test-frontend "{{headed}}"; \
     else \
-        echo "Usage: just test [all|backend|frontend]"; \
+        echo "Usage: just test [all|backend|frontend|coverage] [true|false]"; \
         exit 1; \
     fi

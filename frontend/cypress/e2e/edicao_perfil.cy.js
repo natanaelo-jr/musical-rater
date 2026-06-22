@@ -1,8 +1,8 @@
 /* global describe, before, beforeEach, it, cy */
 
 describe("Edição de Conta/Perfil", () => {
-  const email = "usuario_teste@example.com";
   const password = "Password123!";
+  const email = `cypress_profile_user_${Date.now()}@example.com`;
 
   before(() => {
     // Garante que o usuário existe no banco de dados para o teste de usuário existente.
@@ -46,15 +46,29 @@ describe("Edição de Conta/Perfil", () => {
     cy.get("h1").should("be.visible");
 
     // Clica no botão para abrir as configurações
-    cy.contains("button", "Configurações do perfil").should("be.visible").click();
+    cy.contains("button", "Configurações do perfil")
+      .should("be.visible")
+      .click();
 
     // Confirma que a seção de configurações foi aberta
-    cy.contains("h2", "Edite os detalhes que as pessoas veem no seu perfil.").should("be.visible");
+    cy.contains(
+      "h2",
+      "Edite os detalhes que as pessoas veem no seu perfil.",
+    ).should("be.visible");
 
     // 2. Alterar informações nos campos disponíveis com valores dinâmicos e únicos
-    cy.get('input[name="display_name"]').should("be.visible").clear().type(newDisplayName);
-    cy.get('input[name="username"]').should("be.visible").clear().type(newUsername);
-    cy.get('input[name="avatar_url"]').should("be.visible").clear().type(newAvatarUrl);
+    cy.get('input[name="display_name"]')
+      .should("be.visible")
+      .clear()
+      .type(newDisplayName);
+    cy.get('input[name="username"]')
+      .should("be.visible")
+      .clear()
+      .type(newUsername);
+    cy.get('input[name="avatar_url"]')
+      .should("be.visible")
+      .clear()
+      .type(newAvatarUrl);
     cy.get('textarea[name="bio"]').should("be.visible").clear().type(newBio);
 
     // 3. Submeter o formulário
@@ -62,7 +76,10 @@ describe("Edição de Conta/Perfil", () => {
 
     // 4. Validar se a interface atualizou os dados corretamente e fechou o formulário de edição
     // O formulário de configurações deve sumir após salvar com sucesso
-    cy.contains("h2", "Edite os detalhes que as pessoas veem no seu perfil.").should("not.exist");
+    cy.contains(
+      "h2",
+      "Edite os detalhes que as pessoas veem no seu perfil.",
+    ).should("not.exist");
 
     // O cabeçalho do perfil deve refletir as novas alterações na tela
     cy.contains("h1", newDisplayName).should("be.visible");
