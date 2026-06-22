@@ -1184,6 +1184,7 @@ class CatalogProviderTests(TestCase):
         )
         self.assertEqual(request.headers["Accept"], "application/json")
 
+    @patch.dict("os.environ", {"MUSICBRAINZ_USER_AGENT": "palhinha/0.1 ( https://github.com/natanaelo-jr/musical-rater )"})
     @patch("catalog.providers.urlopen")
     def test_musicbrainz_request_json_adds_format_and_user_agent(self, urlopen_mock):
         from catalog.providers import MusicBrainzSearchProvider
