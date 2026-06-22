@@ -1,3 +1,4 @@
+/* global describe, beforeEach, it, cy */
 describe("Sistema de traducao", () => {
   const pt = {
     appName: "Palhinha",

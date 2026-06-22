@@ -1,0 +1,5 @@
+packages:
+  - "frontend"
+minimumReleaseAge: 0
+allowBuilds:
+  cypress: true
